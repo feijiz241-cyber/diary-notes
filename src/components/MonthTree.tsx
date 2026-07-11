@@ -1,7 +1,6 @@
-import { useMemo, type KeyboardEvent } from 'react'
+import { useId, useMemo, type KeyboardEvent } from 'react'
 import { computeLayout, type Entry } from '@/lib/tree-layout'
 import { getMood } from '@/lib/mood'
-import { buildCrown } from '@/lib/pixel-clump'
 
 interface MonthTreeProps {
   entries: Entry[]
@@ -13,10 +12,17 @@ interface MonthTreeProps {
   onSelect: (date: string) => void
 }
 
-const OUTLINE = '#2a1d10' // 深褐/木炭描边
-const CROWN_COLOR = '#4f8f33' // 我的世界树叶基绿
-const TRUNK_W = 30
-const LEAF = 22 // 物品栏格子边长
+// 黄昏/黎明过渡 调色（仅本组件作用域，不污染全局）
+const SIL = '#14102a' // 前景树 / 最近剪影（近黑紫）
+const SIL_NEAR = '#271d44' // 近山
+const SIL_FAR = '#3a2c5e' // 远山（偏雾紫）
+const GROUND = '#0d0a1a' // 地面
+const MOON = '#f3ecd6' // 月亮
+const STAR = '#f7f0e0' // 星点
+const DAY_TXT = '#d9d2ea' // 日期文字
+const GAP_TXT = 'rgba(217,210,234,0.55)' // 间隔文字
+const SEL_RING = '#ffffff' // 选中环
+const HIT_RING = '#ffd27a' // 搜索命中环
 
 export function MonthTree({
   entries,
@@ -26,17 +32,12 @@ export function MonthTree({
   highlightedDates,
   onSelect,
 }: MonthTreeProps) {
+  const uid = useId().replace(/[:]/g, '')
   const layout = useMemo(
     () => computeLayout(entries, year, month),
     [entries, year, month],
   )
-  const { width, height, trunkX, groundY, crownCX, crownCY, crownR, trunkTopY, leaves, gaps } = layout
-
-  // 树冠：真实 MC 树叶纹理
-  const crownBlocks = useMemo(
-    () => buildCrown(crownCX, crownCY, crownR, CROWN_COLOR, 8),
-    [crownCX, crownCY, crownR],
-  )
+  const { width, height, trunkX, groundY, crownCY, crownR, trunkTopY, leaves, gaps } = layout
 
   const handleKey = (date: string) => (e: KeyboardEvent<SVGGElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -45,96 +46,95 @@ export function MonthTree({
     }
   }
 
-  const grassW = 16
+  // 确定性星点（同一棵树稳定）
+  const stars = useMemo(() => {
+    const rng = (seed: number) => {
+      const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453
+      return x - Math.floor(x)
+    }
+    const count = 46
+    return Array.from({ length: count }, (_, i) => ({
+      x: rng(i * 2 + 1) * width,
+      y: rng(i * 2 + 2) * height * 0.45,
+      r: rng(i) * 1.1 + 0.4,
+    }))
+  }, [width, height])
 
   return (
-    <div className="mx-auto w-full max-w-[460px] overflow-y-auto" style={{ maxHeight: '70vh' }}>
+    <div className="mx-auto w-full overflow-y-auto" style={{ maxHeight: '80vh' }}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="h-auto w-full select-none"
         role="img"
         aria-label={`${year}年${month}月 的日记树，共 ${leaves.length} 篇`}
       >
+        <defs>
+          <linearGradient id={`sky-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#241a40" />
+            <stop offset="42%" stopColor="#5b3f7a" />
+            <stop offset="78%" stopColor="#b86a6a" />
+            <stop offset="100%" stopColor="#e0a06a" />
+          </linearGradient>
+          <radialGradient id={`moon-${uid}`} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={MOON} stopOpacity="0.55" />
+            <stop offset="100%" stopColor={MOON} stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
         {/* ---------- 天空 ---------- */}
-        <rect x={0} y={0} width={width} height={height} className="fill-[var(--mc-sky)]" />
+        <rect x={0} y={0} width={width} height={height} fill={`url(#sky-${uid})`} />
 
-        {/* 太阳 */}
-        <circle cx={width - 56} cy={56} r={20} className="fill-[var(--mc-sun)]" />
-        <circle cx={width - 56} cy={56} r={26} className="fill-[var(--mc-sun)] opacity-20" />
-
-        {/* 像素云 */}
-        <g className="fill-[var(--mc-cloud)]">
-          <Cloud x={70} y={70} />
-          <Cloud x={250} y={120} scale={0.8} />
-          <Cloud x={150} y={200} scale={0.6} />
-        </g>
-
-        {/* ---------- 地面：草方块 + 泥土 + 基岩 ---------- */}
-        <GrassGround width={width} groundY={groundY} grassW={grassW} height={height} />
-
-        {/* 树投影（树干落在地面的像素阴影） */}
-        <ellipse
-          cx={trunkX}
-          cy={groundY + 4}
-          rx={TRUNK_W * 1.7}
-          ry={9}
-          fill="rgba(0,0,0,0.18)"
-        />
-
-        {/* ---------- 树冠：MC 树叶 ---------- */}
-        <g stroke={OUTLINE} strokeWidth={1}>
-          {crownBlocks.map((b, idx) => (
-            <rect key={idx} x={b.x} y={b.y} width={b.size} height={b.size} fill={b.fill} />
+        {/* ---------- 星点 ---------- */}
+        <g fill={STAR}>
+          {stars.map((s, i) => (
+            <circle key={i} cx={s.x} cy={s.y} r={s.r} opacity={0.85} />
           ))}
         </g>
 
-        {/* ---------- 树干：MC 原木 ---------- */}
-        <rect
-          x={trunkX - TRUNK_W / 2}
-          y={trunkTopY}
-          width={TRUNK_W}
-          height={groundY - trunkTopY}
-          className="fill-[var(--mc-log)]"
-          stroke={OUTLINE}
-          strokeWidth={2}
+        {/* ---------- 月亮 ---------- */}
+        <circle cx={width - 70} cy={92} r={46} fill={`url(#moon-${uid})`} />
+        <circle cx={width - 70} cy={92} r={22} fill={MOON} />
+
+        {/* ---------- 地面 ---------- */}
+        <rect x={0} y={groundY} width={width} height={height - groundY} fill={GROUND} />
+
+        {/* ---------- 远山（雾紫，较高） ---------- */}
+        <path
+          d={mountainPath(width, groundY, groundY - 150, [0.5, 0.35, 0.62, 0.4, 0.55, 0.3, 0.58])}
+          fill={SIL_FAR}
         />
-        {/* 左亮 / 右暗 面 */}
-        <rect x={trunkX - TRUNK_W / 2 + 3} y={trunkTopY + 3} width={6} height={groundY - trunkTopY - 6} className="fill-[var(--mc-log-light)]" />
-        <rect x={trunkX + TRUNK_W / 2 - 8} y={trunkTopY + 3} width={5} height={groundY - trunkTopY - 6} className="fill-[var(--mc-log-dark)]" />
-        {/* 树皮竖纹 */}
-        {[trunkX - 6, trunkX + 2, trunkX + 8].map((x, i) => (
-          <line key={i} x1={x} y1={trunkTopY + 6} x2={x} y2={groundY - 6} className="stroke-[var(--mc-log-dark)]" strokeWidth={1.5} opacity={0.5} />
+        {/* ---------- 近山（更深，较低） ---------- */}
+        <path
+          d={mountainPath(width, groundY, groundY - 108, [0.3, 0.45, 0.25, 0.5, 0.32, 0.46, 0.28, 0.5])}
+          fill={SIL_NEAR}
+        />
+
+        {/* ---------- 前景树剪影（根部带过渡、树干锥形、树冠自然） ---------- */}
+        <path d={treePath(trunkX, groundY, trunkTopY, crownCY, crownR)} fill={SIL} />
+
+        {/* ---------- 间隔文字 ---------- */}
+        {gaps.map((g, i) => (
+          <text
+            key={`gap-${i}`}
+            x={g.midX}
+            y={g.midY}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={9}
+            fill={GAP_TXT}
+          >
+            {g.label}
+          </text>
         ))}
-        {/* 树顶年轮（与树冠交界） */}
-        <ellipse cx={trunkX} cy={trunkTopY} rx={TRUNK_W / 2} ry={7} className="fill-[var(--mc-log-light)]" stroke={OUTLINE} strokeWidth={1.5} />
 
-        {/* ---------- 间隔木牌 ---------- */}
-        {gaps.map((g, i) => {
-          const labelW = Math.max(56, g.label.length * 6 + 16)
-          return (
-            <g key={`gap-${i}`} transform={`translate(${g.midX - labelW / 2}, ${g.midY})`}>
-              <rect x={0} y={-9} width={labelW} height={18} className="fill-[var(--mc-plank)]" stroke={OUTLINE} strokeWidth={1.5} />
-              <text
-                x={labelW / 2}
-                y={0}
-                textAnchor="middle"
-                dominantBaseline="central"
-                className="fill-[#2a1c0d] text-[9px] font-bold"
-              >
-                {g.label}
-              </text>
-            </g>
-          )
-        })}
-
-        {/* ---------- 日记叶：MC 物品栏格子 ---------- */}
+        {/* ---------- 日记叶：树上发光点（心情色辉光） ---------- */}
         {leaves.map((leaf) => {
           const mood = getMood(leaf.moodId)
           const isSelected = selectedDate === leaf.date
           const isHit = highlightedDates?.has(leaf.date)
           const dimmed = highlightedDates != null && !isHit
-          const half = LEAF / 2
-          const outlineStroke = isSelected ? '#ffffff' : isHit ? '#38bdf8' : OUTLINE
+          const glow = leaf.color
+          const ringStroke = isSelected ? SEL_RING : isHit ? HIT_RING : 'none'
           return (
             <g
               key={leaf.date}
@@ -146,31 +146,28 @@ export function MonthTree({
               className="cursor-pointer outline-none"
               style={{ opacity: dimmed ? 0.3 : 1 }}
             >
-              {/* 选中 / 命中外框 */}
-              <rect
-                x={leaf.x - half - 3}
-                y={leaf.y - half - 3}
-                width={LEAF + 6}
-                height={LEAF + 6}
-                fill="none"
-                stroke={outlineStroke}
-                strokeWidth={isSelected ? 3 : isHit ? 3 : 0}
-              />
-              {/* 灰格子底（物品栏） */}
-              <rect x={leaf.x - half} y={leaf.y - half} width={LEAF} height={LEAF} className="fill-[var(--mc-stone)]" stroke={OUTLINE} strokeWidth={1.5} />
-              {/* 心情色内块 */}
-              <rect x={leaf.x - half + 3} y={leaf.y - half + 3} width={LEAF - 6} height={LEAF - 6} fill={leaf.color} stroke={OUTLINE} strokeWidth={1} />
-              {/* 心情 emoji */}
-              <text x={leaf.x} y={leaf.y + 1} textAnchor="middle" dominantBaseline="central" fontSize={13}>
-                {mood?.emoji ?? '🍃'}
+              {/* 选中 / 命中外环 */}
+              {ringStroke !== 'none' && (
+                <circle cx={leaf.x} cy={leaf.y} r={13} fill="none" stroke={ringStroke} strokeWidth={2} />
+              )}
+              {/* 辉光 */}
+              <circle cx={leaf.x} cy={leaf.y} r={11} fill={glow} opacity={0.22} />
+              {/* 光晕 */}
+              <circle cx={leaf.x} cy={leaf.y} r={5} fill={glow} />
+              {/* 亮核 */}
+              <circle cx={leaf.x} cy={leaf.y} r={2.2} fill="#fff8e7" />
+              {/* 日期 */}
+              <text
+                x={leaf.x}
+                y={leaf.y + 18}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={8}
+                fontWeight="bold"
+                fill={DAY_TXT}
+              >
+                {leaf.day}
               </text>
-              {/* 日号牌 */}
-              <g transform={`translate(${leaf.x}, ${leaf.y + half + 11})`}>
-                <rect x={-10} y={-8} width={20} height={16} className="fill-[var(--mc-plank)]" stroke={OUTLINE} strokeWidth={1.5} />
-                <text x={0} y={0} textAnchor="middle" dominantBaseline="central" className="fill-[#2a1c0d] text-[8px] font-bold">
-                  {leaf.day}
-                </text>
-              </g>
             </g>
           )
         })}
@@ -191,43 +188,63 @@ export function MonthTree({
   )
 }
 
-/** 像素云：几块白色方块拼成 */
-function Cloud({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
-  const s = 8 * scale
-  const blocks = [
-    [0, 1], [1, 0], [2, 1], [3, 0], [4, 1], [1, 1], [2, 2], [3, 1],
-  ]
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      {blocks.map(([bx, by], i) => (
-        <rect key={i} x={bx * s} y={by * s} width={s} height={s} />
-      ))}
-    </g>
-  )
+/** 生成三角峰剪影多边形路径（baseY 为山脚，topY 为峰顶基准） */
+function mountainPath(width: number, baseY: number, topY: number, peaks: number[]): string {
+  const n = peaks.length
+  const step = width / (n - 1)
+  let d = `M 0 ${baseY}`
+  peaks.forEach((p, i) => {
+    const x = i * step
+    const y = topY + (baseY - topY) * (1 - p)
+    d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`
+  })
+  d += ` L ${width} ${baseY} Z`
+  return d
 }
 
-/** 地面：草方块顶面 + 泥土 + 基岩，草尖点缀 */
-function GrassGround({ width, groundY, grassW, height }: { width: number; groundY: number; grassW: number; height: number }) {
-  const grassCount = Math.ceil(width / grassW)
-  return (
-    <g>
-      {/* 泥土层 */}
-      <rect x={0} y={groundY + 14} width={width} height={28} className="fill-[var(--mc-dirt)]" />
-      {/* 基岩/石头层 */}
-      <rect x={0} y={groundY + 42} width={width} height={height - (groundY + 42)} className="fill-[var(--mc-stone-dark)]" />
-      {/* 草顶面 */}
-      <rect x={0} y={groundY} width={width} height={14} className="fill-[var(--mc-grass-top)]" stroke={OUTLINE} strokeWidth={1} />
-      {/* 草方块分隔 + 草尖 */}
-      {Array.from({ length: grassCount }, (_, i) => {
-        const x = i * grassW
-        return (
-          <g key={i}>
-            <line x1={x} y1={groundY} x2={x} y2={groundY + 14} className="stroke-[var(--mc-grass-top2)]" strokeWidth={1} opacity={0.6} />
-            <rect x={x + grassW / 2 - 3} y={groundY - 5} width={6} height={6} className="fill-[var(--mc-grass-top)]" stroke={OUTLINE} strokeWidth={0.5} />
-            <rect x={x + grassW / 2 - 3} y={groundY} width={6} height={6} className="fill-[var(--mc-grass-top2)]" />
-          </g>
-        )
-      })}
-    </g>
-  )
+/** 生成带根部过渡、树干锥形、树冠自然的树剪影路径 */
+function treePath(
+  tx: number,
+  groundY: number,
+  trunkTopY: number,
+  crownCY: number,
+  crownR: number
+): string {
+  const baseY = groundY
+  const rootSpread = 70
+  const baseW = 42
+  const topW = 20
+  const canSpread = crownR * 0.86
+  const canY = crownCY + crownR * 0.75
+  const topY = crownCY - crownR * 0.95
+
+  const rootL = tx - rootSpread
+  const rootR = tx + rootSpread
+  const baseL = tx - baseW
+  const baseR = tx + baseW
+  const topL = tx - topW
+  const topR = tx + topW
+  const canL = tx - canSpread
+  const canR = tx + canSpread
+
+  return [
+    `M ${rootL} ${baseY}`,
+    // 左根 → 树干底
+    `C ${rootL + 12} ${baseY - 2}, ${baseL - 8} ${baseY - 12}, ${baseL} ${baseY - 14}`,
+    // 左树干底 → 树干顶
+    `C ${baseL + 6} ${baseY - 58}, ${topL - 4} ${trunkTopY + 20}, ${topL} ${trunkTopY}`,
+    // 树干顶 → 左树冠下沿
+    `C ${topL} ${canY + 4}, ${canL + 40} ${canY}, ${canL} ${canY}`,
+    // 左树冠下沿 → 树顶
+    `C ${canL - 20} ${canY - 32}, ${tx - 70} ${topY + 60}, ${tx} ${topY}`,
+    // 树顶 → 右树冠下沿
+    `C ${tx + 70} ${topY + 60}, ${canR + 20} ${canY - 32}, ${canR} ${canY}`,
+    // 右树冠下沿 → 树干顶
+    `C ${canR - 40} ${canY}, ${topR} ${canY + 4}, ${topR} ${trunkTopY}`,
+    // 右树干顶 → 右树干底
+    `C ${topR + 4} ${trunkTopY + 20}, ${baseR - 6} ${baseY - 58}, ${baseR} ${baseY - 14}`,
+    // 右树干底 → 右根
+    `C ${baseR + 8} ${baseY - 12}, ${rootR - 12} ${baseY - 2}, ${rootR} ${baseY}`,
+    'Z',
+  ].join(' ')
 }

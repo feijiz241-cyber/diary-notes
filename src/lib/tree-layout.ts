@@ -43,11 +43,11 @@ export interface TreeLayout {
   bandWidth: number
 }
 
-const WIDTH = 460
-const HEIGHT = 700
+const WIDTH = 760
+const HEIGHT = 620
 const GROUND_H = 56
 const TRUNK_H = 80
-const CROWN_R = 172
+const CROWN_R = 220
 
 export function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate()
@@ -82,7 +82,7 @@ export function computeLayout(entries: Entry[], year: number, month: number): Tr
   const groundY = HEIGHT - GROUND_H
   const crownCY = groundY - TRUNK_H - CROWN_R
   const crownCX = trunkX
-  const bandWidth = CROWN_R * 1.5
+  const bandWidth = 380
   const leafBandY = crownCY + CROWN_R * 0.62
   const trunkTopY = crownCY + CROWN_R * 0.78
 

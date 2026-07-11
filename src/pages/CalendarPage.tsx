@@ -42,7 +42,7 @@ export function CalendarPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
+    <div className="mx-auto w-full">
       <h1 className="mc-sign mb-4 inline-block px-3 py-1.5 text-2xl font-extrabold">日历</h1>
       <Card className="p-4">
         <DayPicker
