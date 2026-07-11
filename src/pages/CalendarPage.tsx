@@ -25,13 +25,13 @@ function MiniMonth({ year, month, moods, onDayClick }: MiniMonthProps) {
   const firstDay = new Date(year, month - 1, 1).getDay()
 
   return (
-    <Card className="p-3">
-      <h2 className="mb-2 text-center text-base font-extrabold">{month}月</h2>
+    <Card className="p-4">
+      <h2 className="mb-3 text-center text-xl font-extrabold">{month}月</h2>
       <div className="grid grid-cols-7 border-2 border-[var(--mc-outline)]">
         {WEEKDAYS.map((d) => (
           <div
             key={d}
-            className="flex aspect-square items-center justify-center border border-[var(--mc-outline)]/20 bg-muted/30 text-[10px] font-bold"
+            className="flex aspect-square items-center justify-center border border-[var(--mc-outline)]/20 bg-muted/30 text-xs font-bold"
           >
             {d}
           </div>
@@ -49,7 +49,7 @@ function MiniMonth({ year, month, moods, onDayClick }: MiniMonthProps) {
               onClick={() => onDayClick(date)}
               className={cn(
                 'relative flex aspect-square w-full items-center justify-center',
-                'rounded-none border text-xs font-medium',
+                'rounded-none border text-sm font-semibold',
                 'transition-colors hover:bg-muted',
                 mood ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)]' : 'border-[var(--mc-outline)]/20'
               )}
@@ -58,7 +58,7 @@ function MiniMonth({ year, month, moods, onDayClick }: MiniMonthProps) {
             >
               {day}
               {mood && (
-                <span className="pointer-events-none absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] leading-none">
+                <span className="pointer-events-none absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] leading-none">
                   {mood.emoji}
                 </span>
               )}
@@ -116,7 +116,7 @@ export function CalendarPage() {
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 12 }, (_, i) => (
           <MiniMonth
             key={i + 1}

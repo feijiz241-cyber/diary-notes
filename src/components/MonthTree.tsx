@@ -211,12 +211,12 @@ function treePath(
   crownR: number
 ): string {
   const baseY = groundY
-  const rootSpread = 70
-  const baseW = 42
-  const topW = 20
-  const canSpread = crownR * 0.86
-  const canY = crownCY + crownR * 0.75
-  const topY = crownCY - crownR * 0.95
+  const rootSpread = 110
+  const baseW = 60
+  const topW = 28
+  const canSpread = crownR * 0.92
+  const canY = crownCY + crownR * 0.82
+  const topY = crownCY - crownR * 0.96
 
   const rootL = tx - rootSpread
   const rootR = tx + rootSpread
@@ -229,22 +229,22 @@ function treePath(
 
   return [
     `M ${rootL} ${baseY}`,
-    // 左根 → 树干底
-    `C ${rootL + 12} ${baseY - 2}, ${baseL - 8} ${baseY - 12}, ${baseL} ${baseY - 14}`,
-    // 左树干底 → 树干顶
-    `C ${baseL + 6} ${baseY - 58}, ${topL - 4} ${trunkTopY + 20}, ${topL} ${trunkTopY}`,
-    // 树干顶 → 左树冠下沿
-    `C ${topL} ${canY + 4}, ${canL + 40} ${canY}, ${canL} ${canY}`,
-    // 左树冠下沿 → 树顶
-    `C ${canL - 20} ${canY - 32}, ${tx - 70} ${topY + 60}, ${tx} ${topY}`,
+    // 左根 → 树干底（宽大根部过渡）
+    `C ${rootL + 18} ${baseY - 3}, ${baseL - 12} ${baseY - 16}, ${baseL} ${baseY - 20}`,
+    // 左树干底 → 树干顶（锥形收拢）
+    `C ${baseL + 10} ${baseY - 90}, ${topL - 6} ${trunkTopY + 30}, ${topL} ${trunkTopY}`,
+    // 树干顶 → 左树冠下沿（被树冠包裹）
+    `C ${topL} ${canY + 6}, ${canL + 60} ${canY}, ${canL} ${canY}`,
+    // 左树冠下沿 → 树顶（饱满外扩）
+    `C ${canL - 32} ${canY - 44}, ${tx - 100} ${topY + 90}, ${tx} ${topY}`,
     // 树顶 → 右树冠下沿
-    `C ${tx + 70} ${topY + 60}, ${canR + 20} ${canY - 32}, ${canR} ${canY}`,
+    `C ${tx + 100} ${topY + 90}, ${canR + 32} ${canY - 44}, ${canR} ${canY}`,
     // 右树冠下沿 → 树干顶
-    `C ${canR - 40} ${canY}, ${topR} ${canY + 4}, ${topR} ${trunkTopY}`,
+    `C ${canR - 60} ${canY}, ${topR} ${canY + 6}, ${topR} ${trunkTopY}`,
     // 右树干顶 → 右树干底
-    `C ${topR + 4} ${trunkTopY + 20}, ${baseR - 6} ${baseY - 58}, ${baseR} ${baseY - 14}`,
+    `C ${topR + 6} ${trunkTopY + 30}, ${baseR - 10} ${baseY - 90}, ${baseR} ${baseY - 20}`,
     // 右树干底 → 右根
-    `C ${baseR + 8} ${baseY - 12}, ${rootR - 12} ${baseY - 2}, ${rootR} ${baseY}`,
+    `C ${baseR + 12} ${baseY - 16}, ${rootR - 18} ${baseY - 3}, ${rootR} ${baseY}`,
     'Z',
   ].join(' ')
 }
