@@ -65,7 +65,7 @@ describe('computeLayout', () => {
 
   it('叶子带心情颜色，无心情回退默认色', () => {
     const layout = computeLayout([entry('2026-07-03', 'sad'), entry('2026-07-09', null)], 2026, 7)
-    expect(layout.leaves[0].color).toBe('#7FA8CF')
+    expect(layout.leaves[0].color).toBe('#99F6E4')
     expect(layout.leaves[1].color).toMatch(/^#/)
   })
 })
