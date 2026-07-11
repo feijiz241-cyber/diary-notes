@@ -26,7 +26,7 @@ export function SearchPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl">搜索</h1>
+      <h1 className="mc-sign mb-1 inline-block px-3 py-1.5 text-2xl font-extrabold">搜索</h1>
       <div className="relative">
         <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -45,7 +45,7 @@ export function SearchPage() {
         {results.map((r) => (
           <Card
             key={r.id}
-            className="cursor-pointer transition-colors hover:bg-accent/50"
+            className="cursor-pointer transition-[filter] hover:brightness-105"
             onClick={() => navigate('/day/' + r.date)}
           >
             <CardContent className="p-4">

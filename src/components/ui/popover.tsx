@@ -6,6 +6,7 @@ const Popover = PopoverPrimitive.Root
 const PopoverTrigger = PopoverPrimitive.Trigger
 const PopoverAnchor = PopoverPrimitive.Anchor
 
+/* 木板材质气泡 */
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
@@ -16,7 +17,7 @@ const PopoverContent = React.forwardRef<
       align={align}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 w-72 rounded-none border-2 bg-popover p-4 text-popover-foreground shadow-[4px_4px_0_0_hsl(var(--border))] outline-none',
+        'z-50 w-72 rounded-none border-2 border-[var(--mc-outline)] bg-[var(--card)] p-3 text-card-foreground shadow-[4px_4px_0_0_var(--mc-outline))] outline-none',
         className,
       )}
       {...props}

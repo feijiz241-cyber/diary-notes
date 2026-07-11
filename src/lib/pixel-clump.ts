@@ -70,8 +70,8 @@ export function clumpBounds(cx: number, cy: number, blockSize: number): { x: num
 }
 
 /**
- * 生成参考图风格的大蓬松像素树冠（圆形网格 + 外缘缺失 + 体积明暗）。
- * 用于"整棵大树"方案的主体树冠。
+ * 生成真实的我的世界树叶树冠：圆形网格 + 外缘蓬松缺失 + 随机深浅明暗 + 内部镂空洞。
+ * 颜色用基色按 hash 随机取 亮/中/暗 三档（而非线性渐变），更贴近 MC 树叶纹理。
  */
 export function buildCrown(
   cx: number,
@@ -89,16 +89,15 @@ export function buildCrown(
       const dist = Math.sqrt(px * px + py * py)
       if (dist > radius) continue
       const edge = dist / radius
+      const r = hash(`${cx},${cy},${i},${j}`, i, j)
       // 外缘随机缺失，制造蓬松轮廓
-      if (edge > 0.84) {
-        const h = hash(`${cx},${cy},${i},${j}`, i, j)
-        if (h < 0.32) continue
-      }
-      // 体积明暗：左上亮、右下暗
+      if (edge > 0.84 && r < 0.34) continue
+      // 内部随机镂空洞（似真实树叶空隙）
+      if (edge < 0.78 && r > 0.94) continue
+      // 随机三档明暗，模拟 MC 树叶纹理
       let fill = color
-      if (i + j <= -2) fill = shade(color, 30)
-      else if (i + j >= 2) fill = shade(color, -34)
-      else fill = shade(color, -2)
+      if (r < 0.15) fill = shade(color, 36)
+      else if (r > 0.82) fill = shade(color, -32)
       blocks.push({
         x: cx + px - blockSize / 2,
         y: cy + py - blockSize / 2,

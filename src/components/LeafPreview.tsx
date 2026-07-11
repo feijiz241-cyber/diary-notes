@@ -21,13 +21,13 @@ export function LeafPreview({ entry, open, onOpenChange, prevGap, nextGap }: Lea
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         {entry && (
-          <>
+          <div className="border-2 border-[var(--mc-outline)] bg-[var(--card)]">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold">{entry.title || '（无标题）'}</DialogTitle>
+              <DialogTitle className="text-xl font-extrabold">{entry.title || '（无标题）'}</DialogTitle>
               <DialogDescription className="flex flex-wrap items-center gap-2">
                 <span>{formatHuman(entry.date)}</span>
                 {mood && (
-                  <span className="inline-flex items-center gap-1 rounded-none border-2 bg-accent px-2 py-0.5 text-xs font-bold">
+                  <span className="inline-flex items-center gap-1 border-2 border-[var(--mc-outline)] bg-[var(--mc-plank)] px-2 py-0.5 text-xs font-bold text-[#2a1c0d]">
                     {mood.emoji} {mood.label}
                   </span>
                 )}
@@ -36,7 +36,7 @@ export function LeafPreview({ entry, open, onOpenChange, prevGap, nextGap }: Lea
 
             <div className="space-y-4 p-4">
               {(prevGap != null || nextGap != null) && (
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <div className="flex flex-wrap gap-2 border-2 border-[var(--mc-outline)] bg-[var(--mc-plank)] px-2 py-1 text-xs font-bold text-[#2a1c0d]">
                   {prevGap != null && <span>距上篇 {prevGap} 天</span>}
                   {nextGap != null && <span>距下篇 {nextGap} 天</span>}
                 </div>
@@ -47,7 +47,7 @@ export function LeafPreview({ entry, open, onOpenChange, prevGap, nextGap }: Lea
                   {entry.tags.map((t) => (
                     <span
                       key={t}
-                      className="rounded-none border-2 px-2 py-0.5 text-xs text-muted-foreground"
+                      className="border-2 border-[var(--mc-outline)] bg-[var(--mc-plank)] px-2 py-0.5 text-xs font-bold text-[#2a1c0d]"
                     >
                       #{t}
                     </span>
@@ -57,7 +57,7 @@ export function LeafPreview({ entry, open, onOpenChange, prevGap, nextGap }: Lea
 
               <Editor value={entry.content} onChange={() => {}} dateKey={entry.date} editable={false} />
             </div>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>

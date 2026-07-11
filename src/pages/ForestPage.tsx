@@ -94,7 +94,7 @@ export function ForestPage() {
           <Button variant="outline" size="icon" onClick={() => shiftMonth(-1)} aria-label="上个月">
             <ChevronLeft className="size-4" />
           </Button>
-          <h1 className="min-w-28 text-center text-xl font-semibold">
+          <h1 className="mc-sign min-w-28 px-3 py-1.5 text-center text-xl font-extrabold">
             {year} 年 {month} 月
           </h1>
           <Button variant="outline" size="icon" onClick={() => shiftMonth(1)} aria-label="下个月">

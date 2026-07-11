@@ -5,6 +5,7 @@ import 'react-day-picker/style.css'
 import { getMonth } from '@/lib/db'
 import { getMood } from '@/lib/mood'
 import { toDateKey, cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
 
 export function CalendarPage() {
   const navigate = useNavigate()
@@ -42,16 +43,18 @@ export function CalendarPage() {
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="mb-4 text-2xl">日历</h1>
-      <DayPicker
-        month={month}
-        onMonthChange={setMonth}
-        mode="single"
-        onSelect={(d) => {
-          if (d) navigate('/day/' + toDateKey(d))
-        }}
-        components={{ DayButton: DayButtonWithMood }}
-      />
+      <h1 className="mc-sign mb-4 inline-block px-3 py-1.5 text-2xl font-extrabold">日历</h1>
+      <Card className="p-4">
+        <DayPicker
+          month={month}
+          onMonthChange={setMonth}
+          mode="single"
+          onSelect={(d) => {
+            if (d) navigate('/day/' + toDateKey(d))
+          }}
+          components={{ DayButton: DayButtonWithMood }}
+        />
+      </Card>
     </div>
   )
 }

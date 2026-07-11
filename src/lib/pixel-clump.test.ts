@@ -33,12 +33,15 @@ describe('pixel-clump', () => {
 })
 
 describe('buildCrown (大蓬松树冠)', () => {
-  it('生成圆形蓬松树冠，块数充足、颜色合法', () => {
+  it('生成圆形树叶树冠，块数充足、颜色合法、明暗多样', () => {
     const blocks = buildCrown(200, 200, 80, '#4ADE80', 8)
     expect(blocks.length).toBeGreaterThan(50)
     // 中心方块存在
     expect(blocks.some((b) => Math.abs(b.x - 196) < 8 && Math.abs(b.y - 196) < 8)).toBe(true)
     for (const b of blocks) expect(b.fill).toMatch(/^#[0-9a-f]{6}$/i)
+    // 真实 MC 树叶纹理：应出现多档明暗（不止基色一种）
+    const colors = new Set(blocks.map((b) => b.fill))
+    expect(colors.size).toBeGreaterThan(1)
   })
 
   it('相同参数生成相同布局（确定性）', () => {

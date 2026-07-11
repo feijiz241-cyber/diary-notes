@@ -55,8 +55,8 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      <h1 className="text-2xl">设置</h1>
-      {status && <p className="rounded-none border-2 bg-accent px-3 py-2 text-sm font-bold text-accent-foreground">{status}</p>}
+      <h1 className="mc-sign mb-1 inline-block px-3 py-1.5 text-2xl font-extrabold">设置</h1>
+      {status && <p className="border-2 border-[var(--mc-outline)] bg-[var(--mc-plank)] px-3 py-2 text-sm font-bold text-[#2a1c0d]">{status}</p>}
 
       <Card>
         <CardHeader>

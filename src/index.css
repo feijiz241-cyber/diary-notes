@@ -1,54 +1,102 @@
 @import 'tailwindcss';
 
-/* ---------- 像素风 / Minecraft 感主题：浅色 / 深色 ---------- */
+/* ============================================================
+   我的世界 2D 像素风材质主题（浅色=明亮户外 / 深色=洞穴）
+   ============================================================ */
 :root {
-  --background: 40 20% 94%;
-  --foreground: 30 20% 20%;
-  --card: 40 15% 90%;
-  --card-foreground: 30 20% 20%;
-  --popover: 40 15% 90%;
-  --popover-foreground: 30 20% 20%;
-  --primary: 100 30% 47%;
-  --primary-foreground: 40 20% 94%;
-  --secondary: 40 14% 84%;
-  --secondary-foreground: 30 20% 25%;
-  --muted: 40 14% 84%;
-  --muted-foreground: 30 10% 45%;
-  --accent: 40 20% 76%;
-  --accent-foreground: 30 20% 25%;
-  --destructive: 0 60% 50%;
+  /* ---- 应用级令牌（供 Tailwind 组件复用） ---- */
+  --background: 200 18% 92%;
+  --foreground: 28 22% 16%;
+  --card: 35 40% 82%;
+  --card-foreground: 28 22% 16%;
+  --popover: 35 38% 84%;
+  --popover-foreground: 28 22% 16%;
+  --primary: 96 38% 42%;
+  --primary-foreground: 35 40% 92%;
+  --secondary: 35 32% 74%;
+  --secondary-foreground: 28 22% 16%;
+  --muted: 35 28% 78%;
+  --muted-foreground: 28 14% 40%;
+  --accent: 35 34% 76%;
+  --accent-foreground: 28 22% 16%;
+  --destructive: 0 58% 48%;
   --destructive-foreground: 0 0% 100%;
-  --border: 40 20% 73%;
-  --input: 40 20% 73%;
-  --ring: 100 30% 47%;
+  --border: 28 24% 42%;
+  --input: 28 24% 50%;
+  --ring: 96 38% 42%;
   --radius: 0rem;
   --font-sans: ui-sans-serif, system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-serif: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+
+  /* ---- 我的世界材质色板（hex，供 SVG / 材质类使用） ---- */
+  --mc-sky: #8fd3ff;
+  --mc-sky-cave: #1b2733;
+  --mc-cloud: #ffffff;
+  --mc-sun: #ffe96b;
+  --mc-grass-top: #6aa83f;
+  --mc-grass-top2: #5d8c22;
+  --mc-dirt: #8b5a2b;
+  --mc-dirt2: #7a5230;
+  --mc-stone: #9a9a9a;
+  --mc-stone-light: #b9b9b9;
+  --mc-stone-dark: #767676;
+  --mc-plank: #caa06a;
+  --mc-plank-light: #ddb985;
+  --mc-plank-dark: #a47a45;
+  --mc-log: #7a5630;
+  --mc-log-light: #9a734a;
+  --mc-log-dark: #4a3318;
+  --mc-leaf: #4f8f33;
+  --mc-leaf-light: #6fae45;
+  --mc-leaf-dark: #386c20;
+  --mc-anvil: #5a5a5a;
+  --mc-anvil-light: #7e7e7e;
+  --mc-anvil-dark: #353535;
+  --mc-outline: #2a1d10;
 }
 
 .dark {
-  --background: 30 18% 13%;
-  --foreground: 40 20% 90%;
-  --card: 30 18% 17%;
-  --card-foreground: 40 20% 90%;
-  --popover: 30 18% 17%;
-  --popover-foreground: 40 20% 90%;
-  --primary: 100 40% 59%;
-  --primary-foreground: 30 18% 13%;
-  --secondary: 30 15% 20%;
-  --secondary-foreground: 40 20% 90%;
-  --muted: 30 15% 20%;
-  --muted-foreground: 40 10% 65%;
-  --accent: 30 20% 24%;
-  --accent-foreground: 40 20% 90%;
-  --destructive: 0 55% 50%;
+  --background: 210 20% 12%;
+  --foreground: 40 16% 88%;
+  --card: 28 20% 21%;
+  --card-foreground: 40 16% 88%;
+  --popover: 28 20% 24%;
+  --popover-foreground: 40 16% 88%;
+  --primary: 96 44% 56%;
+  --primary-foreground: 28 20% 12%;
+  --secondary: 28 16% 27%;
+  --secondary-foreground: 40 16% 88%;
+  --muted: 28 16% 28%;
+  --muted-foreground: 40 10% 64%;
+  --accent: 28 18% 31%;
+  --accent-foreground: 40 16% 88%;
+  --destructive: 0 52% 54%;
   --destructive-foreground: 0 0% 100%;
-  --border: 30 19% 29%;
-  --input: 30 19% 29%;
-  --ring: 100 40% 59%;
+  --border: 28 18% 38%;
+  --input: 28 18% 44%;
+  --ring: 96 44% 56%;
+
+  --mc-sky: #2a3b4d;
+  --mc-dirt: #5a3d22;
+  --mc-dirt2: #4a3220;
+  --mc-stone: #747474;
+  --mc-stone-light: #969696;
+  --mc-stone-dark: #565656;
+  --mc-plank: #8a6a42;
+  --mc-plank-light: #a07e50;
+  --mc-plank-dark: #6c4f2e;
+  --mc-log: #5a3f22;
+  --mc-log-light: #6f5230;
+  --mc-log-dark: #321f0e;
+  --mc-leaf: #3f7d2b;
+  --mc-leaf-light: #5a9a3a;
+  --mc-leaf-dark: #2c5a1c;
+  --mc-anvil: #4a4a4a;
+  --mc-anvil-light: #6e6e6e;
+  --mc-anvil-dark: #2a2a2a;
 }
 
-/* ---------- 映射为 Tailwind 设计令牌 ---------- */
+/* ---- 映射为 Tailwind 设计令牌 ---- */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -79,37 +127,97 @@
   --font-serif: var(--font-serif);
 }
 
-/* ---------- 像素风工具类 ---------- */
+/* ============================================================
+   材质工具类
+   ============================================================ */
 @layer utilities {
+  /* 像素硬阴影（统一深木描边色） */
   .pixel-shadow {
-    box-shadow: 4px 4px 0 0 hsl(var(--border));
+    box-shadow: 4px 4px 0 0 var(--mc-outline);
   }
   .pixel-shadow-sm {
-    box-shadow: 2px 2px 0 0 hsl(var(--border));
+    box-shadow: 2px 2px 0 0 var(--mc-outline);
   }
   .pixel-shadow-lg {
-    box-shadow: 6px 6px 0 0 hsl(var(--border));
+    box-shadow: 6px 6px 0 0 var(--mc-outline);
   }
+
+  /* 石头按钮 / 面板 */
+  .mc-stone {
+    background-color: var(--mc-stone);
+    border: 2px solid var(--mc-outline);
+    box-shadow:
+      inset 0 3px 0 var(--mc-stone-light),
+      inset 0 -4px 0 var(--mc-stone-dark),
+      3px 3px 0 0 var(--mc-outline);
+    color: #1c140a;
+  }
+  .mc-stone:active {
+    box-shadow:
+      inset 0 3px 0 var(--mc-stone-light),
+      inset 0 -2px 0 var(--mc-stone-dark);
+    transform: translate(3px, 3px);
+  }
+
+  /* 木板 */
+  .mc-plank {
+    background-color: var(--mc-plank);
+    background-image: repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--mc-plank-dark) 35%, transparent) 0 2px,
+      transparent 2px 14px
+    );
+    border: 2px solid var(--mc-outline);
+    box-shadow: 3px 3px 0 0 var(--mc-outline);
+    color: #2a1c0d;
+  }
+
+  /* 铁砧金属面板（弹窗/厚重容器） */
+  .mc-anvil {
+    background-color: var(--mc-anvil);
+    background-image:
+      linear-gradient(180deg, var(--mc-anvil-light) 0 18%, transparent 18% 100%),
+      linear-gradient(0deg, var(--mc-anvil-dark) 0 14%, transparent 14% 100%);
+    border: 3px solid var(--mc-outline);
+    box-shadow: 5px 5px 0 0 var(--mc-outline);
+    color: #f4f4f4;
+  }
+
+  /* 泥土纹理底（草地之下） */
+  .mc-dirt {
+    background-color: var(--mc-dirt);
+    background-image: radial-gradient(var(--mc-dirt2) 1px, transparent 1.5px);
+    background-size: 6px 6px;
+  }
+
+  /* 木牌（标题/标签） */
+  .mc-sign {
+    background-color: var(--mc-plank);
+    border: 2px solid var(--mc-outline);
+    box-shadow:
+      inset 0 2px 0 var(--mc-plank-light),
+      inset 0 -3px 0 var(--mc-plank-dark),
+      3px 3px 0 0 var(--mc-outline);
+    color: #2a1c0d;
+  }
+
+  /* 像素描边（细） */
+  .mc-outline {
+    border: 2px solid var(--mc-outline);
+  }
+
+  /* 按下时整体位移反馈 */
   .pixel-press {
-    transition: transform 0.05s ease, box-shadow 0.05s ease;
-  }
-  .pixel-press:active {
-    transform: translate(2px, 2px);
-    box-shadow: 0 0 0 0 hsl(var(--border));
-  }
-  .pixel-border {
-    border-width: 2px;
-  }
-  .pixel-box {
-    border-width: 2px;
-    box-shadow: 4px 4px 0 0 hsl(var(--border));
+    transition: transform 0.04s ease, box-shadow 0.04s ease;
   }
 }
 
-/* ---------- 基础层 ---------- */
+/* ============================================================
+   基础层
+   ============================================================ */
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: var(--mc-outline);
   }
   html {
     -webkit-text-size-adjust: 100%;
@@ -117,6 +225,12 @@
   body {
     margin: 0;
     background-color: hsl(var(--background));
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--mc-outline) 4%, transparent) 0 1px,
+        transparent 1px 9px
+      );
     color: hsl(var(--foreground));
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -126,29 +240,31 @@
   h3,
   h4 {
     font-family: var(--font-sans);
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: 0.02em;
   }
 }
 
-/* ---------- 编辑器内容排版（像素/方块化） ---------- */
+/* ============================================================
+   编辑器内容排版（像素/方块化）
+   ============================================================ */
 @layer components {
   .tiptap {
     outline: none;
   }
   .tiptap h1 {
     font-size: 1.5rem;
-    font-weight: 700;
+    font-weight: 800;
     margin: 0.6em 0 0.3em;
   }
   .tiptap h2 {
     font-size: 1.25rem;
-    font-weight: 700;
+    font-weight: 800;
     margin: 0.6em 0 0.3em;
   }
   .tiptap h3 {
     font-size: 1.1rem;
-    font-weight: 700;
+    font-weight: 800;
     margin: 0.5em 0 0.3em;
   }
   .tiptap p {
@@ -166,21 +282,21 @@
     margin: 0.4em 0;
   }
   .tiptap blockquote {
-    border-left: 4px solid hsl(var(--border));
+    border-left: 4px solid var(--mc-plank-dark);
     padding-left: 1em;
     color: hsl(var(--muted-foreground));
     margin: 0.6em 0;
   }
   .tiptap code {
-    background: hsl(var(--muted));
+    background: var(--mc-stone);
     padding: 0.1em 0.3em;
-    border-radius: 0;
+    border: 1px solid var(--mc-outline);
     font-size: 0.9em;
   }
   .tiptap pre {
-    background: hsl(var(--muted));
+    background: #2b2b2b;
     padding: 0.8em;
-    border-radius: 0;
+    border: 2px solid var(--mc-outline);
     overflow: auto;
     margin: 0.5em 0;
   }
@@ -190,8 +306,7 @@
   }
   .tiptap img {
     max-width: 100%;
-    border-radius: 0;
-    border: 2px solid hsl(var(--border));
+    border: 2px solid var(--mc-outline);
   }
   .tiptap p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
@@ -202,10 +317,12 @@
   }
 }
 
-/* ---------- react-day-picker 像素主题 ---------- */
+/* ============================================================
+   react-day-picker 像素主题
+   ============================================================ */
 .rdp-root {
   --rdp-accent-color: hsl(var(--primary));
-  --rdp-accent-background-color: hsl(var(--accent));
+  --rdp-accent-background-color: var(--mc-plank);
   --rdp-day-width: 2.5rem;
   --rdp-day-height: 2.5rem;
   --rdp-day_button-width: 2.5rem;
@@ -216,14 +333,15 @@
 }
 .rdp-day_button {
   border-radius: 0;
-  border: 2px solid transparent;
+  border: 2px solid var(--mc-outline);
 }
 .rdp-selected .rdp-day_button {
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
-  border-color: hsl(var(--foreground));
+  border-color: var(--mc-outline);
 }
 .rdp-today:not(.rdp-selected) .rdp-day_button {
-  font-weight: 700;
-  border-color: hsl(var(--border));
+  font-weight: 800;
+  border-color: var(--mc-outline);
+  background: var(--mc-plank-light);
 }
