@@ -68,6 +68,12 @@ export async function getMonth(year: number, month: number): Promise<Entry[]> {
   return db.entries.where('date').startsWith(prefix).toArray()
 }
 
+/** 取某年（1-12 月）的全部日记。 */
+export async function getYear(year: number): Promise<Entry[]> {
+  const prefix = `${year}-`
+  return db.entries.where('date').startsWith(prefix).toArray()
+}
+
 export async function getAll(): Promise<Entry[]> {
   return db.entries.toArray()
 }

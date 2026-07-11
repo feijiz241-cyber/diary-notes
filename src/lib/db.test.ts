@@ -7,6 +7,7 @@ import {
   getImagesByEntry,
   getAll,
   clearAll,
+  getYear,
 } from './db'
 
 beforeEach(async () => {
@@ -45,5 +46,14 @@ describe('data layer', () => {
     await deleteEntry(id)
     expect(await getByDate('2026-07-11')).toBeUndefined()
     expect((await getImagesByEntry('2026-07-11')).length).toBe(0)
+  })
+
+  it('getYear returns only entries of the specified year', async () => {
+    await putEntry({ ...sample, date: '2026-01-10' })
+    await putEntry({ ...sample, date: '2026-07-11' })
+    await putEntry({ ...sample, date: '2025-12-31' })
+    const year2026 = await getYear(2026)
+    expect(year2026.length).toBe(2)
+    expect(year2026.map((e) => e.date).sort()).toEqual(['2026-01-10', '2026-07-11'])
   })
 })

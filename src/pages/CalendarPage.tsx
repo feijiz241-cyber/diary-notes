@@ -1,22 +1,80 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DayPicker, type DayButtonProps } from 'react-day-picker'
-import 'react-day-picker/style.css'
-import { getMonth } from '@/lib/db'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { getYear } from '@/lib/db'
 import { getMood } from '@/lib/mood'
-import { toDateKey, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate()
+}
+
+interface MiniMonthProps {
+  year: number
+  month: number
+  moods: Record<string, string | null>
+  onDayClick: (date: string) => void
+}
+
+function MiniMonth({ year, month, moods, onDayClick }: MiniMonthProps) {
+  const dim = daysInMonth(year, month)
+  const firstDay = new Date(year, month - 1, 1).getDay()
+
+  return (
+    <Card className="p-3">
+      <h2 className="mb-2 text-center text-base font-extrabold">{month}月</h2>
+      <div className="grid grid-cols-7 gap-1">
+        {WEEKDAYS.map((d) => (
+          <div key={d} className="text-center text-[10px] font-bold opacity-70">
+            {d}
+          </div>
+        ))}
+        {Array.from({ length: firstDay }).map((_, i) => (
+          <div key={`blank-${i}`} />
+        ))}
+        {Array.from({ length: dim }, (_, i) => {
+          const day = i + 1
+          const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const mood = getMood(moods[date])
+          return (
+            <button
+              key={day}
+              onClick={() => onDayClick(date)}
+              className={cn(
+                'relative flex h-7 w-7 items-center justify-center',
+                'rounded-none border text-xs font-medium',
+                'transition-colors hover:bg-muted',
+                mood ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)]' : 'border-transparent'
+              )}
+              title={mood ? `${date} · ${mood.label}` : date}
+              aria-label={mood ? `${date} · ${mood.label}` : date}
+            >
+              {day}
+              {mood && (
+                <span className="pointer-events-none absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] leading-none">
+                  {mood.emoji}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
 
 export function CalendarPage() {
   const navigate = useNavigate()
-  const [month, setMonth] = useState<Date>(new Date())
+  const [year, setYear] = useState<number>(new Date().getFullYear())
   const [moods, setMoods] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
     let active = true
-    const y = month.getFullYear()
-    const m = month.getMonth() + 1
-    getMonth(y, m).then((list) => {
+    getYear(year).then((list) => {
       if (!active) return
       const map: Record<string, string | null> = {}
       for (const e of list) map[e.date] = e.mood
@@ -25,36 +83,47 @@ export function CalendarPage() {
     return () => {
       active = false
     }
-  }, [month])
+  }, [year])
 
-  const DayButtonWithMood = ({ day, modifiers: _modifiers, children, ...rest }: DayButtonProps) => {
-    const mood = getMood(moods[toDateKey(day.date)])
-    return (
-      <button {...rest} className={cn('relative', rest.className)}>
-        {children}
-        {mood && (
-          <span className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] leading-none">
-            {mood.emoji}
-          </span>
-        )}
-      </button>
-    )
-  }
+  const handleDayClick = (date: string) => navigate('/day/' + date)
 
   return (
     <div className="mx-auto w-full">
-      <h1 className="mc-sign mb-4 inline-block px-3 py-1.5 text-2xl font-extrabold">日历</h1>
-      <Card className="p-4">
-        <DayPicker
-          month={month}
-          onMonthChange={setMonth}
-          mode="single"
-          onSelect={(d) => {
-            if (d) navigate('/day/' + toDateKey(d))
-          }}
-          components={{ DayButton: DayButtonWithMood }}
-        />
-      </Card>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="mc-sign inline-block px-3 py-1.5 text-2xl font-extrabold">日历</h1>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setYear((y) => y - 1)}
+            aria-label="上一年"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="mc-sign inline-block min-w-[5.5rem] px-3 py-1.5 text-center text-lg font-extrabold">
+            {year}年
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setYear((y) => y + 1)}
+            aria-label="下一年"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: 12 }, (_, i) => (
+          <MiniMonth
+            key={i + 1}
+            year={year}
+            month={i + 1}
+            moods={moods}
+            onDayClick={handleDayClick}
+          />
+        ))}
+      </div>
     </div>
   )
 }
