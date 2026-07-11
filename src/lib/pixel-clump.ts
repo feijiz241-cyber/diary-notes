@@ -68,3 +68,44 @@ export function clumpBounds(cx: number, cy: number, blockSize: number): { x: num
   const span = 5 * blockSize
   return { x: cx - span / 2, y: cy - span / 2, w: span, h: span }
 }
+
+/**
+ * 生成参考图风格的大蓬松像素树冠（圆形网格 + 外缘缺失 + 体积明暗）。
+ * 用于"整棵大树"方案的主体树冠。
+ */
+export function buildCrown(
+  cx: number,
+  cy: number,
+  radius: number,
+  color: string,
+  blockSize = 8,
+): PixelBlock[] {
+  const blocks: PixelBlock[] = []
+  const half = Math.round(radius / blockSize)
+  for (let i = -half; i <= half; i++) {
+    for (let j = -half; j <= half; j++) {
+      const px = i * blockSize
+      const py = j * blockSize
+      const dist = Math.sqrt(px * px + py * py)
+      if (dist > radius) continue
+      const edge = dist / radius
+      // 外缘随机缺失，制造蓬松轮廓
+      if (edge > 0.84) {
+        const h = hash(`${cx},${cy},${i},${j}`, i, j)
+        if (h < 0.32) continue
+      }
+      // 体积明暗：左上亮、右下暗
+      let fill = color
+      if (i + j <= -2) fill = shade(color, 30)
+      else if (i + j >= 2) fill = shade(color, -34)
+      else fill = shade(color, -2)
+      blocks.push({
+        x: cx + px - blockSize / 2,
+        y: cy + py - blockSize / 2,
+        size: blockSize,
+        fill,
+      })
+    }
+  }
+  return blocks
+}
