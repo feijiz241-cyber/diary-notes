@@ -27,14 +27,17 @@ function MiniMonth({ year, month, moods, onDayClick }: MiniMonthProps) {
   return (
     <Card className="p-3">
       <h2 className="mb-2 text-center text-base font-extrabold">{month}月</h2>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 border-2 border-[var(--mc-outline)]">
         {WEEKDAYS.map((d) => (
-          <div key={d} className="text-center text-[10px] font-bold opacity-70">
+          <div
+            key={d}
+            className="flex aspect-square items-center justify-center border border-[var(--mc-outline)]/20 bg-muted/30 text-[10px] font-bold"
+          >
             {d}
           </div>
         ))}
         {Array.from({ length: firstDay }).map((_, i) => (
-          <div key={`blank-${i}`} />
+          <div key={`blank-${i}`} className="aspect-square border border-[var(--mc-outline)]/20" />
         ))}
         {Array.from({ length: dim }, (_, i) => {
           const day = i + 1
@@ -45,10 +48,10 @@ function MiniMonth({ year, month, moods, onDayClick }: MiniMonthProps) {
               key={day}
               onClick={() => onDayClick(date)}
               className={cn(
-                'relative flex h-7 w-7 items-center justify-center',
+                'relative flex aspect-square w-full items-center justify-center',
                 'rounded-none border text-xs font-medium',
                 'transition-colors hover:bg-muted',
-                mood ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)]' : 'border-transparent'
+                mood ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)]' : 'border-[var(--mc-outline)]/20'
               )}
               title={mood ? `${date} · ${mood.label}` : date}
               aria-label={mood ? `${date} · ${mood.label}` : date}
