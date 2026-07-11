@@ -1,11 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { BookOpen, CalendarDays, Search, Settings, Sun, Moon, Home } from 'lucide-react'
+import { BookOpen, CalendarDays, Search, Settings, Sun, Moon, Home, TreePine } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from './ThemeProvider'
 import { Button } from './ui/button'
 
 const navItems = [
   { to: '/', label: '今日', icon: Home, end: true },
+  { to: '/forest', label: '森林', icon: TreePine, end: false },
   { to: '/calendar', label: '日历', icon: CalendarDays, end: false },
   { to: '/search', label: '搜索', icon: Search, end: false },
   { to: '/settings', label: '设置', icon: Settings, end: false },

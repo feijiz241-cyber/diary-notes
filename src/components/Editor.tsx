@@ -12,6 +12,8 @@ interface EditorProps {
   value: unknown
   onChange: (json: unknown) => void
   dateKey: string
+  /** 只读预览模式（隐藏工具栏与上传，禁止编辑） */
+  editable?: boolean
 }
 
 function ToolbarButton({
@@ -42,7 +44,7 @@ function ToolbarButton({
   )
 }
 
-export function Editor({ value, onChange, dateKey }: EditorProps) {
+export function Editor({ value, onChange, dateKey, editable = true }: EditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -50,7 +52,8 @@ export function Editor({ value, onChange, dateKey }: EditorProps) {
       Placeholder.configure({ placeholder: '今天发生了什么……' }),
     ],
     content: (value as object) ?? '',
-    onUpdate: ({ editor }) => onChange(editor.getJSON()),
+    editable,
+    onUpdate: editable ? ({ editor }) => onChange(editor.getJSON()) : undefined,
     editorProps: {
       attributes: { class: 'min-h-[240px] px-3 py-3' },
     },
@@ -64,6 +67,14 @@ export function Editor({ value, onChange, dateKey }: EditorProps) {
   }, [editor, value])
 
   if (!editor) return null
+
+  if (!editable) {
+    return (
+      <div className="rounded-lg border bg-card">
+        <EditorContent editor={editor} />
+      </div>
+    )
+  }
 
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
