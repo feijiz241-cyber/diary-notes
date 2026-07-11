@@ -1,0 +1,198 @@
+@import 'tailwindcss';
+
+/* ---------- 纸感主题：浅色 / 深色 ---------- */
+:root {
+  --background: 40 30% 98%;
+  --foreground: 30 10% 18%;
+  --card: 40 33% 99%;
+  --card-foreground: 30 10% 18%;
+  --popover: 40 33% 99%;
+  --popover-foreground: 30 10% 18%;
+  --primary: 28 45% 42%;
+  --primary-foreground: 40 33% 98%;
+  --secondary: 40 22% 92%;
+  --secondary-foreground: 30 10% 25%;
+  --muted: 40 16% 94%;
+  --muted-foreground: 30 8% 45%;
+  --accent: 40 26% 90%;
+  --accent-foreground: 30 10% 25%;
+  --destructive: 0 70% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 36 20% 86%;
+  --input: 36 20% 86%;
+  --ring: 28 45% 42%;
+  --radius: 0.75rem;
+  --font-sans: ui-sans-serif, system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+}
+
+.dark {
+  --background: 30 12% 12%;
+  --foreground: 40 20% 92%;
+  --card: 30 12% 15%;
+  --card-foreground: 40 20% 92%;
+  --popover: 30 12% 15%;
+  --popover-foreground: 40 20% 92%;
+  --primary: 30 50% 60%;
+  --primary-foreground: 30 12% 12%;
+  --secondary: 30 10% 22%;
+  --secondary-foreground: 40 20% 92%;
+  --muted: 30 10% 20%;
+  --muted-foreground: 40 10% 65%;
+  --accent: 30 12% 24%;
+  --accent-foreground: 40 20% 92%;
+  --destructive: 0 60% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 10% 26%;
+  --input: 30 10% 26%;
+  --ring: 30 50% 60%;
+}
+
+/* ---------- 映射为 Tailwind 设计令牌 ---------- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+}
+
+/* ---------- 基础层 ---------- */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+}
+
+/* ---------- 编辑器内容排版（极简，无 typography 插件） ---------- */
+@layer components {
+  .tiptap {
+    outline: none;
+  }
+  .tiptap h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0.6em 0 0.3em;
+  }
+  .tiptap h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0.6em 0 0.3em;
+  }
+  .tiptap h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0.5em 0 0.3em;
+  }
+  .tiptap p {
+    margin: 0.4em 0;
+    line-height: 1.8;
+  }
+  .tiptap ul {
+    list-style: disc;
+    padding-left: 1.4em;
+    margin: 0.4em 0;
+  }
+  .tiptap ol {
+    list-style: decimal;
+    padding-left: 1.4em;
+    margin: 0.4em 0;
+  }
+  .tiptap blockquote {
+    border-left: 3px solid var(--color-border);
+    padding-left: 1em;
+    color: var(--color-muted-foreground);
+    margin: 0.6em 0;
+  }
+  .tiptap code {
+    background: var(--color-muted);
+    padding: 0.1em 0.3em;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  .tiptap pre {
+    background: var(--color-muted);
+    padding: 0.8em;
+    border-radius: 8px;
+    overflow: auto;
+    margin: 0.5em 0;
+  }
+  .tiptap pre code {
+    background: none;
+    padding: 0;
+  }
+  .tiptap img {
+    max-width: 100%;
+    border-radius: 8px;
+  }
+  .tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: var(--color-muted-foreground);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+}
+
+/* ---------- react-day-picker 主题适配 ---------- */
+.rdp-root {
+  --rdp-accent-color: hsl(var(--primary));
+  --rdp-accent-background-color: hsl(var(--accent));
+  --rdp-day-width: 2.5rem;
+  --rdp-day-height: 2.5rem;
+  --rdp-day_button-width: 2.5rem;
+  --rdp-day_button-height: 2.5rem;
+  --rdp-today-color: hsl(var(--primary));
+  margin: 0;
+  font-size: 0.9rem;
+}
+.rdp-day_button {
+  border-radius: 0.5rem;
+}
+.rdp-selected .rdp-day_button {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.rdp-today:not(.rdp-selected) .rdp-day_button {
+  font-weight: 700;
+}
