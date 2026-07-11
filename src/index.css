@@ -1,51 +1,51 @@
 @import 'tailwindcss';
 
-/* ---------- 纸感主题：浅色 / 深色 ---------- */
+/* ---------- 像素风 / Minecraft 感主题：浅色 / 深色 ---------- */
 :root {
-  --background: 40 30% 98%;
-  --foreground: 30 10% 18%;
-  --card: 40 33% 99%;
-  --card-foreground: 30 10% 18%;
-  --popover: 40 33% 99%;
-  --popover-foreground: 30 10% 18%;
-  --primary: 28 45% 42%;
-  --primary-foreground: 40 33% 98%;
-  --secondary: 40 22% 92%;
-  --secondary-foreground: 30 10% 25%;
-  --muted: 40 16% 94%;
-  --muted-foreground: 30 8% 45%;
-  --accent: 40 26% 90%;
-  --accent-foreground: 30 10% 25%;
-  --destructive: 0 70% 50%;
+  --background: 40 20% 94%;
+  --foreground: 30 20% 20%;
+  --card: 40 15% 90%;
+  --card-foreground: 30 20% 20%;
+  --popover: 40 15% 90%;
+  --popover-foreground: 30 20% 20%;
+  --primary: 100 30% 47%;
+  --primary-foreground: 40 20% 94%;
+  --secondary: 40 14% 84%;
+  --secondary-foreground: 30 20% 25%;
+  --muted: 40 14% 84%;
+  --muted-foreground: 30 10% 45%;
+  --accent: 40 20% 76%;
+  --accent-foreground: 30 20% 25%;
+  --destructive: 0 60% 50%;
   --destructive-foreground: 0 0% 100%;
-  --border: 36 20% 86%;
-  --input: 36 20% 86%;
-  --ring: 28 45% 42%;
-  --radius: 0.75rem;
+  --border: 40 20% 73%;
+  --input: 40 20% 73%;
+  --ring: 100 30% 47%;
+  --radius: 0rem;
   --font-sans: ui-sans-serif, system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-serif: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
 }
 
 .dark {
-  --background: 30 12% 12%;
-  --foreground: 40 20% 92%;
-  --card: 30 12% 15%;
-  --card-foreground: 40 20% 92%;
-  --popover: 30 12% 15%;
-  --popover-foreground: 40 20% 92%;
-  --primary: 30 50% 60%;
-  --primary-foreground: 30 12% 12%;
-  --secondary: 30 10% 22%;
-  --secondary-foreground: 40 20% 92%;
-  --muted: 30 10% 20%;
+  --background: 30 18% 13%;
+  --foreground: 40 20% 90%;
+  --card: 30 18% 17%;
+  --card-foreground: 40 20% 90%;
+  --popover: 30 18% 17%;
+  --popover-foreground: 40 20% 90%;
+  --primary: 100 40% 59%;
+  --primary-foreground: 30 18% 13%;
+  --secondary: 30 15% 20%;
+  --secondary-foreground: 40 20% 90%;
+  --muted: 30 15% 20%;
   --muted-foreground: 40 10% 65%;
-  --accent: 30 12% 24%;
-  --accent-foreground: 40 20% 92%;
-  --destructive: 0 60% 50%;
+  --accent: 30 20% 24%;
+  --accent-foreground: 40 20% 90%;
+  --destructive: 0 55% 50%;
   --destructive-foreground: 0 0% 100%;
-  --border: 30 10% 26%;
-  --input: 30 10% 26%;
-  --ring: 30 50% 60%;
+  --border: 30 19% 29%;
+  --input: 30 19% 29%;
+  --ring: 100 40% 59%;
 }
 
 /* ---------- 映射为 Tailwind 设计令牌 ---------- */
@@ -71,26 +71,53 @@
   --color-ring: var(--ring);
 
   --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-md: var(--radius);
+  --radius-sm: var(--radius);
+  --radius-xl: var(--radius);
 
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
 }
 
+/* ---------- 像素风工具类 ---------- */
+@layer utilities {
+  .pixel-shadow {
+    box-shadow: 4px 4px 0 0 hsl(var(--border));
+  }
+  .pixel-shadow-sm {
+    box-shadow: 2px 2px 0 0 hsl(var(--border));
+  }
+  .pixel-shadow-lg {
+    box-shadow: 6px 6px 0 0 hsl(var(--border));
+  }
+  .pixel-press {
+    transition: transform 0.05s ease, box-shadow 0.05s ease;
+  }
+  .pixel-press:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 0 hsl(var(--border));
+  }
+  .pixel-border {
+    border-width: 2px;
+  }
+  .pixel-box {
+    border-width: 2px;
+    box-shadow: 4px 4px 0 0 hsl(var(--border));
+  }
+}
+
 /* ---------- 基础层 ---------- */
 @layer base {
   * {
-    border-color: var(--color-border);
+    border-color: hsl(var(--border));
   }
   html {
     -webkit-text-size-adjust: 100%;
   }
   body {
     margin: 0;
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
@@ -98,13 +125,13 @@
   h2,
   h3,
   h4 {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    letter-spacing: 0.01em;
+    font-family: var(--font-sans);
+    font-weight: 700;
+    letter-spacing: 0.02em;
   }
 }
 
-/* ---------- 编辑器内容排版（极简，无 typography 插件） ---------- */
+/* ---------- 编辑器内容排版（像素/方块化） ---------- */
 @layer components {
   .tiptap {
     outline: none;
@@ -121,7 +148,7 @@
   }
   .tiptap h3 {
     font-size: 1.1rem;
-    font-weight: 600;
+    font-weight: 700;
     margin: 0.5em 0 0.3em;
   }
   .tiptap p {
@@ -129,7 +156,7 @@
     line-height: 1.8;
   }
   .tiptap ul {
-    list-style: disc;
+    list-style: square;
     padding-left: 1.4em;
     margin: 0.4em 0;
   }
@@ -139,21 +166,21 @@
     margin: 0.4em 0;
   }
   .tiptap blockquote {
-    border-left: 3px solid var(--color-border);
+    border-left: 4px solid hsl(var(--border));
     padding-left: 1em;
-    color: var(--color-muted-foreground);
+    color: hsl(var(--muted-foreground));
     margin: 0.6em 0;
   }
   .tiptap code {
-    background: var(--color-muted);
+    background: hsl(var(--muted));
     padding: 0.1em 0.3em;
-    border-radius: 4px;
+    border-radius: 0;
     font-size: 0.9em;
   }
   .tiptap pre {
-    background: var(--color-muted);
+    background: hsl(var(--muted));
     padding: 0.8em;
-    border-radius: 8px;
+    border-radius: 0;
     overflow: auto;
     margin: 0.5em 0;
   }
@@ -163,18 +190,19 @@
   }
   .tiptap img {
     max-width: 100%;
-    border-radius: 8px;
+    border-radius: 0;
+    border: 2px solid hsl(var(--border));
   }
   .tiptap p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
-    color: var(--color-muted-foreground);
+    color: hsl(var(--muted-foreground));
     float: left;
     height: 0;
     pointer-events: none;
   }
 }
 
-/* ---------- react-day-picker 主题适配 ---------- */
+/* ---------- react-day-picker 像素主题 ---------- */
 .rdp-root {
   --rdp-accent-color: hsl(var(--primary));
   --rdp-accent-background-color: hsl(var(--accent));
@@ -187,12 +215,15 @@
   font-size: 0.9rem;
 }
 .rdp-day_button {
-  border-radius: 0.5rem;
+  border-radius: 0;
+  border: 2px solid transparent;
 }
 .rdp-selected .rdp-day_button {
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--foreground));
 }
 .rdp-today:not(.rdp-selected) .rdp-day_button {
   font-weight: 700;
+  border-color: hsl(var(--border));
 }

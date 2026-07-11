@@ -56,7 +56,7 @@ export function SettingsPage() {
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="text-2xl">设置</h1>
-      {status && <p className="rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground">{status}</p>}
+      {status && <p className="rounded-none border-2 bg-accent px-3 py-2 text-sm font-bold text-accent-foreground">{status}</p>}
 
       <Card>
         <CardHeader>

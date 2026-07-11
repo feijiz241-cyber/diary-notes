@@ -35,7 +35,7 @@ function ToolbarButton({
       aria-label={label}
       title={label}
       className={cn(
-        'rounded p-2 transition-colors hover:bg-accent',
+        'rounded-none border-2 border-transparent p-2 transition-colors hover:bg-accent',
         active && 'bg-accent text-accent-foreground',
       )}
     >
@@ -70,15 +70,15 @@ export function Editor({ value, onChange, dateKey, editable = true }: EditorProp
 
   if (!editable) {
     return (
-      <div className="rounded-lg border bg-card">
+      <div className="rounded-none border-2 bg-card">
         <EditorContent editor={editor} />
       </div>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <div className="flex flex-wrap items-center gap-1 border-b p-2">
+    <div className="overflow-hidden rounded-none border-2 bg-card">
+      <div className="flex flex-wrap items-center gap-1 border-b-2 p-2">
         <ToolbarButton
           label="加粗"
           active={editor.isActive('bold')}

@@ -29,9 +29,9 @@ function ImageView({ node }: { node: any }) {
   return (
     <NodeViewWrapper className="my-3">
       {url ? (
-        <img src={url} alt={node.attrs.alt ?? ''} className="max-w-full rounded-lg" />
+        <img src={url} alt={node.attrs.alt ?? ''} className="max-w-full rounded-none border-2" />
       ) : (
-        <div className="h-32 w-full animate-pulse rounded-lg bg-muted" />
+        <div className="h-32 w-full animate-pulse rounded-none border-2 bg-muted" />
       )}
     </NodeViewWrapper>
   )

@@ -34,7 +34,7 @@ export function ImageUpload({ editor, dateKey, className }: ImageUploadProps) {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className={cn('rounded p-2 transition-colors hover:bg-accent', className)}
+        className={cn('rounded-none border-2 border-transparent p-2 transition-colors hover:bg-accent', className)}
         title="插入图片"
         aria-label="插入图片"
       >

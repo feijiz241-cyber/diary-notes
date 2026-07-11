@@ -32,18 +32,18 @@ export function TagInput({ value, onChange }: TagInputProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5">
+    <div className="flex flex-wrap items-center gap-2 rounded-none border-2 px-2 py-1.5">
       {value.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground"
+          className="inline-flex items-center gap-1 rounded-none border-2 bg-secondary px-2 py-0.5 text-xs font-bold text-secondary-foreground"
         >
           {tag}
           <button
             type="button"
             onClick={() => onChange(value.filter((t) => t !== tag))}
             aria-label={`移除标签 ${tag}`}
-            className="rounded-full hover:text-destructive"
+            className="rounded-none hover:text-destructive"
           >
             <X className="size-3" />
           </button>
