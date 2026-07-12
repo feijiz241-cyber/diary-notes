@@ -28,18 +28,19 @@ export function MoodPicker({ value, onChange }: MoodPickerProps) {
               onClick={() => onChange(m.id)}
               title={m.label}
               className={cn(
-                'flex flex-col items-center rounded-none border-2 border-transparent p-2 text-xs font-bold transition-colors hover:bg-accent',
-                value === m.id && 'bg-accent border-foreground shadow-[2px_2px_0_0_hsl(var(--foreground))]',
+                'flex flex-col items-center rounded-none border-2 border-[var(--mc-outline)] p-2 text-xs font-bold transition-all hover:brightness-95',
+                value === m.id && 'shadow-[2px_2px_0_0_hsl(var(--foreground))]',
               )}
+              style={{ backgroundColor: m.color }}
             >
               <span className="text-2xl leading-none">{m.emoji}</span>
-              <span className="mt-1 text-muted-foreground">{m.label}</span>
+              <span className="mt-1 text-[var(--mc-outline)]">{m.label}</span>
             </button>
           ))}
           <button
             type="button"
             onClick={() => onChange(null)}
-            className="col-span-4 mt-1 rounded-none border-2 border-transparent p-1 text-xs text-muted-foreground hover:bg-accent"
+            className="col-span-4 mt-1 rounded-none border-2 border-[var(--mc-outline)] bg-[var(--mc-stone)] p-1 text-xs font-bold text-[var(--mc-outline)] hover:brightness-95"
           >
             清除心情
           </button>
