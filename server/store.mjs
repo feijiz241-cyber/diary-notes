@@ -133,4 +133,15 @@ export class Store {
       .filter(([, v]) => v.entryId === entryId)
       .map(([id, v]) => ({ id, ...v }))
   }
+
+  async clearAll() {
+    return this._enqueue(async () => {
+      await this._writeJSON(this.entriesFile, [])
+      const manifest = await this._readJSON(this.manifestFile, {})
+      for (const [imgId, meta] of Object.entries(manifest)) {
+        await fs.rm(path.join(this.imagesDir, `${imgId}.${meta.ext}`), { force: true })
+      }
+      await this._writeJSON(this.manifestFile, {})
+    })
+  }
 }

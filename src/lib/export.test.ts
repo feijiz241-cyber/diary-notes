@@ -1,10 +1,13 @@
-import { beforeEach, describe, it, expect } from 'vitest'
-import { Blob as NodeBlob } from 'node:buffer'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { createMockApi } from '../test/mockApi'
 import { buildExportBundle, importBundle, entriesToMarkdown } from './export'
 import { putEntry, putImage, getAll, clearAll } from './db'
 
-beforeEach(async () => {
-  await clearAll()
+const mock = createMockApi()
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', mock.fetch)
+  mock.reset()
 })
 
 describe('export / import', () => {
@@ -16,7 +19,7 @@ describe('export / import', () => {
       mood: 'joy',
       tags: ['x'],
     })
-    await putImage('2026-07-11', new NodeBlob(['img'], { type: 'image/png' }) as unknown as Blob)
+    await putImage('2026-07-11', new Blob(['img'], { type: 'image/png' }))
 
     const bundle = await buildExportBundle()
     expect(bundle.version).toBe(1)
@@ -33,7 +36,7 @@ describe('export / import', () => {
       mood: null,
       tags: ['a'],
     })
-    await putImage('2026-07-11', new NodeBlob(['img'], { type: 'image/png' }) as unknown as Blob)
+    await putImage('2026-07-11', new Blob(['img'], { type: 'image/png' }))
 
     const bundle = await buildExportBundle()
     await clearAll()

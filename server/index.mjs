@@ -47,6 +47,16 @@ export function createServer(store, port = PORT) {
         return
       }
 
+      const entryIdMatch = pathname.match(/^\/api\/entries\/id\/([^/]+)$/)
+      if (entryIdMatch && method === 'GET') {
+        const id = decodeURIComponent(entryIdMatch[1])
+        const all = await store.readAll()
+        const e = all.find((x) => x.id === id)
+        if (e) sendJSON(200, e)
+        else sendJSON(404, { error: 'not found' })
+        return
+      }
+
       const entryDateMatch = pathname.match(/^\/api\/entries\/([^/]+)$/)
       if (entryDateMatch && method === 'GET') {
         const date = decodeURIComponent(entryDateMatch[1])
@@ -60,6 +70,12 @@ export function createServer(store, port = PORT) {
         const body = await readBody()
         const e = await store.upsertByDate(body)
         sendJSON(200, e)
+        return
+      }
+
+      if (pathname === '/api/entries' && method === 'DELETE') {
+        await store.clearAll()
+        sendJSON(200, { ok: true })
         return
       }
 

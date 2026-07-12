@@ -1,4 +1,5 @@
-import { beforeEach, describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { createMockApi } from '../test/mockApi'
 import {
   putEntry,
   getByDate,
@@ -6,12 +7,14 @@ import {
   putImage,
   getImagesByEntry,
   getAll,
-  clearAll,
   getYear,
 } from './db'
 
-beforeEach(async () => {
-  await clearAll()
+const mock = createMockApi()
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', mock.fetch)
+  mock.reset()
 })
 
 const sample = {
@@ -22,7 +25,7 @@ const sample = {
   tags: ['a'],
 }
 
-describe('data layer', () => {
+describe('data layer (fetch → backend)', () => {
   it('put then getByDate', async () => {
     await putEntry(sample)
     const e = await getByDate('2026-07-11')

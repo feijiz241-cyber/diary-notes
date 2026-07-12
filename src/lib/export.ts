@@ -17,14 +17,12 @@ export interface ExportBundle {
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
-  return blob
-    .arrayBuffer()
-    .then((buf) => {
-      const bytes = new Uint8Array(buf)
-      let binary = ''
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-      return `data:${blob.type || 'application/octet-stream'};base64,${btoa(binary)}`
-    })
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {

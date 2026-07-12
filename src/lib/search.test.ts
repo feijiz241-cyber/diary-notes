@@ -1,9 +1,13 @@
-import { beforeEach, describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { createMockApi } from '../test/mockApi'
 import { searchEntries } from './search'
-import { putEntry, clearAll } from './db'
+import { putEntry } from './db'
 
-beforeEach(async () => {
-  await clearAll()
+const mock = createMockApi()
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', mock.fetch)
+  mock.reset()
 })
 
 describe('search', () => {
