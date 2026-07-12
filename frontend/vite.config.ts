@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
 export default defineConfig({
+  root: 'frontend',
   plugins: [react(), tailwindcss()],
   server: {
     port: 5188,
@@ -31,5 +32,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/test/setup.ts',
+    include: ['src/**/*.test.{ts,tsx}', '../backend/**/*.test.mjs'],
   },
 })
