@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { Download, Upload, Trash2, Sun, Moon, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
@@ -16,12 +16,30 @@ import {
 import { useTheme } from '@/components/ThemeProvider'
 import { buildExportBundle, downloadFile, entriesToMarkdown, importBundle } from '@/lib/export'
 import { getAll, clearAll } from '@/lib/db'
+import { hasBrowserData, migrateBrowserToBackend } from '@/lib/migrate'
 import { toDateKey } from '@/lib/utils'
 
 export function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const fileRef = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState<string | null>(null)
+  const [hasOld, setHasOld] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    hasBrowserData()
+      .then(setHasOld)
+      .catch(() => setHasOld(false))
+  }, [])
+
+  const onMigrate = async () => {
+    try {
+      const n = await migrateBrowserToBackend()
+      setStatus(`已从浏览器迁移 ${n} 篇日记到本机文件，之后不再因清缓存而丢失。`)
+      setHasOld(false)
+    } catch {
+      setStatus('迁移失败，请重试。')
+    }
+  }
 
   const onExportJson = async () => {
     const bundle = await buildExportBundle()
@@ -94,6 +112,22 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      {hasOld === true && (
+        <Card className="border-amber-500/50">
+          <CardHeader>
+            <CardTitle className="text-base">发现浏览器旧日记</CardTitle>
+            <CardDescription>
+              检测到旧版（浏览器内）还存有日记，可一键迁移到本机文件，之后不再受清缓存影响。
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={onMigrate}>
+              <Upload className="size-4" /> 迁移到本机文件
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border-destructive/40">
         <CardHeader>
           <CardTitle className="text-base text-destructive">危险区域</CardTitle>
@@ -130,7 +164,7 @@ export function SettingsPage() {
 
       <Separator />
       <p className="text-center text-xs text-muted-foreground">
-        所有数据仅保存在本机浏览器（IndexedDB），不会上传到任何服务器。
+        所有数据保存在本机文件夹（data/），由本地后端读写，不会上传到任何服务器。
       </p>
     </div>
   )

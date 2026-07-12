@@ -22,7 +22,7 @@ export function ImageUpload({ editor, dateKey, className }: ImageUploadProps) {
       editor
         .chain()
         .focus()
-        .setImage({ src: `idb:${imageId}`, alt: file.name } as never)
+        .setImage({ src: `file:${imageId}`, alt: file.name } as never)
         .updateAttributes('image', { imageId, entryId: dateKey } as never)
         .run()
     }
