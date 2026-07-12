@@ -10,7 +10,7 @@ if (!('ResizeObserver' in globalThis)) {
   }
 }
 
-if (!window.matchMedia) {
+if (typeof window !== 'undefined' && !window.matchMedia) {
   window.matchMedia = () =>
     ({
       matches: false,
