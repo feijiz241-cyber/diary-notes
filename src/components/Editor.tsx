@@ -70,7 +70,7 @@ export function Editor({ value, onChange, dateKey, editable = true }: EditorProp
 
   if (!editable) {
     return (
-      <div className="rounded-none border-2 bg-card">
+      <div className="rounded-none border-2 border-[var(--mc-outline)] bg-[#f9f5eb] text-[#2a1c0d]">
         <EditorContent editor={editor} />
       </div>
     )

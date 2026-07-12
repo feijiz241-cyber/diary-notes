@@ -21,7 +21,7 @@ export function LeafPreview({ entry, open, onOpenChange, prevGap, nextGap }: Lea
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         {entry && (
-          <div className="border-2 border-[var(--mc-outline)] bg-[var(--card)]">
+          <div className="border-2 border-[var(--mc-outline)] bg-[#f9f5eb] text-[#2a1c0d]">
             <DialogHeader>
               <DialogTitle className="text-xl font-extrabold">{entry.title || '（无标题）'}</DialogTitle>
               <DialogDescription className="flex flex-wrap items-center gap-2">
