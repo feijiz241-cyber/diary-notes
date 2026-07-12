@@ -69,12 +69,6 @@ export async function getByDate(date: string): Promise<Entry | undefined> {
   return (await parseJSON(res)) as Entry
 }
 
-export async function getById(id: string): Promise<Entry | undefined> {
-  const res = await fetch(`${BASE}/entries/id/${encodeURIComponent(id)}`)
-  if (res.status === 404) return undefined
-  return (await parseJSON(res)) as Entry
-}
-
 /** 取某年某月（1-12）的全部日记。 */
 export async function getMonth(year: number, month: number): Promise<Entry[]> {
   const m = `${year}-${String(month).padStart(2, '0')}`
@@ -123,15 +117,6 @@ export async function getImagesByEntry(entryId: string): Promise<ImageRecord[]> 
       return { id: m.id, entryId: m.entryId, blob, createdAt: 0 }
     }),
   )
-}
-
-export async function deleteImagesByEntry(entryId: string): Promise<void> {
-  const res = await fetch(`${BASE}/images?entryId=${encodeURIComponent(entryId)}`)
-  const list = (await parseJSON(res)) as Array<{ id: string }>
-  for (const m of list) {
-    const d = await fetch(`${BASE}/images/${m.id}`, { method: 'DELETE' })
-    await parseJSON(d)
-  }
 }
 
 export async function clearAll(): Promise<void> {

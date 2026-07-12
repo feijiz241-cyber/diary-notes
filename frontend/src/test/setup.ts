@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom'
 import 'fake-indexeddb/auto'
 
-// jsdom 缺失的浏览器 API 兜底（Radix / react-day-picker 需要）
+// jsdom 缺失的浏览器 API 兜底（Radix 组件需要）
 if (!('ResizeObserver' in globalThis)) {
   globalThis.ResizeObserver = class {
     observe() {}

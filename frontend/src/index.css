@@ -317,31 +317,4 @@
   }
 }
 
-/* ============================================================
-   react-day-picker 像素主题
-   ============================================================ */
-.rdp-root {
-  --rdp-accent-color: hsl(var(--primary));
-  --rdp-accent-background-color: var(--mc-plank);
-  --rdp-day-width: 2.5rem;
-  --rdp-day-height: 2.5rem;
-  --rdp-day_button-width: 2.5rem;
-  --rdp-day_button-height: 2.5rem;
-  --rdp-today-color: hsl(var(--primary));
-  margin: 0;
-  font-size: 0.9rem;
-}
-.rdp-day_button {
-  border-radius: 0;
-  border: 2px solid var(--mc-outline);
-}
-.rdp-selected .rdp-day_button {
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-  border-color: var(--mc-outline);
-}
-.rdp-today:not(.rdp-selected) .rdp-day_button {
-  font-weight: 800;
-  border-color: var(--mc-outline);
-  background: var(--mc-plank-light);
-}
+
