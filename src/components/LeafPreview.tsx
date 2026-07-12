@@ -1,5 +1,8 @@
+import { useNavigate } from 'react-router-dom'
+import { Pencil } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Editor } from '@/components/Editor'
+import { Button } from '@/components/ui/button'
 import { getMood } from '@/lib/mood'
 import { formatHuman } from '@/lib/utils'
 import type { Entry } from '@/lib/db'
@@ -16,6 +19,13 @@ interface LeafPreviewProps {
 
 export function LeafPreview({ entry, open, onOpenChange, prevGap, nextGap }: LeafPreviewProps) {
   const mood = getMood(entry?.mood ?? null)
+  const navigate = useNavigate()
+
+  const goEdit = () => {
+    if (!entry) return
+    onOpenChange(false)
+    navigate('/day/' + entry.date)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -56,6 +66,16 @@ export function LeafPreview({ entry, open, onOpenChange, prevGap, nextGap }: Lea
               )}
 
               <Editor value={entry.content} onChange={() => {}} dateKey={entry.date} editable={false} />
+
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={goEdit}
+                aria-label="编辑这篇日记"
+              >
+                <Pencil className="size-4" />
+                编辑这篇日记
+              </Button>
             </div>
           </div>
         )}
