@@ -94,6 +94,8 @@
   --mc-anvil: #4a4a4a;
   --mc-anvil-light: #6e6e6e;
   --mc-anvil-dark: #2a2a2a;
+  /* 深色模式下用浅棕描边，否则深底上深棕线条几乎不可见 */
+  --mc-outline: #b08d5f;
 }
 
 /* ---- 映射为 Tailwind 设计令牌 ---- */

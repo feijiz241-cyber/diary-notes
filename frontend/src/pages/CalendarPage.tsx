@@ -31,13 +31,13 @@ function MiniMonth({ year, month, moods, onDayClick }: MiniMonthProps) {
         {WEEKDAYS.map((d) => (
           <div
             key={d}
-            className="flex aspect-square items-center justify-center border border-[var(--mc-outline)]/20 bg-muted/30 text-xs font-bold"
+            className="flex aspect-square items-center justify-center border border-[var(--mc-outline)]/40 bg-muted/30 text-xs font-bold"
           >
             {d}
           </div>
         ))}
         {Array.from({ length: firstDay }).map((_, i) => (
-          <div key={`blank-${i}`} className="aspect-square border border-[var(--mc-outline)]/20" />
+          <div key={`blank-${i}`} className="aspect-square border border-[var(--mc-outline)]/40" />
         ))}
         {Array.from({ length: dim }, (_, i) => {
           const day = i + 1
@@ -51,7 +51,7 @@ function MiniMonth({ year, month, moods, onDayClick }: MiniMonthProps) {
                 'relative flex aspect-square w-full items-center justify-center',
                 'rounded-none border text-sm font-semibold',
                 'transition-colors hover:bg-muted',
-                mood ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)]' : 'border-[var(--mc-outline)]/20'
+                mood ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)]' : 'border-[var(--mc-outline)]/40'
               )}
               title={mood ? `${date} · ${mood.label}` : date}
               aria-label={mood ? `${date} · ${mood.label}` : date}
