@@ -174,15 +174,15 @@ function NoteYearCalendar({ date, counts, onSelect, onShiftYear }: YearCalendarP
                 className={cn(
                   'relative flex aspect-square items-center justify-center rounded-none border text-xs font-semibold transition-colors',
                   selected
-                    ? 'border-[var(--mc-outline)] bg-primary text-primary-foreground'
+                    ? 'border-[var(--mc-outline)] bg-primary text-primary-foreground ring-2 ring-[var(--mc-outline)] ring-inset'
                     : count
-                      ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)] font-bold text-[#2a1c0d] shadow-[inset_0_2px_0_var(--mc-plank-light),inset_0_-2px_0_var(--mc-plank-dark)] hover:brightness-105'
+                      ? 'border-[var(--mc-outline)] bg-primary/85 font-bold text-primary-foreground hover:bg-primary/75'
                       : 'border-[var(--mc-outline)]/40 hover:bg-muted',
                 )}
               >
                 {day}
                 {count > 0 && !selected && (
-                  <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold leading-none text-primary-foreground">
+                  <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-[var(--mc-plank)] text-[9px] font-bold leading-none text-[#2a1c0d] ring-1 ring-[var(--mc-outline)]">
                     {count > 9 ? '9+' : count}
                   </span>
                 )}
