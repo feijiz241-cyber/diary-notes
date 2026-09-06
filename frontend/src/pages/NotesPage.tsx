@@ -267,7 +267,10 @@ export function NotesPage() {
         <NoteYearCalendar
           date={date}
           counts={yearCounts}
-          onSelect={setDate}
+          onSelect={(d) => {
+            setDate(d)
+            setShowCalendar(false) // 选完日期自动收起，年历只负责查找跳转
+          }}
           onShiftYear={(delta) => setDate((d) => shiftYear(d, delta))}
         />
       )}
