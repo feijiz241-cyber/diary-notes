@@ -182,11 +182,6 @@ function NoteYearCalendar({ date, counts, onSelect, onShiftYear }: YearCalendarP
                 )}
               >
                 {day}
-                {count > 0 && !selected && (
-                  <span className="pointer-events-none absolute right-0.5 top-0 text-[9px] font-bold leading-none text-[#2a1c0d]">
-                    {count > 9 ? '9+' : count}
-                  </span>
-                )}
               </button>
             )
           })}
