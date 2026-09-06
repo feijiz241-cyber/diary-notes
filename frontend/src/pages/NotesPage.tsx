@@ -30,7 +30,7 @@ interface NoteCardProps {
   note: Note
   dateKey: string
   onDeleted: () => void
-  onSaved?: () => void
+  onSaved?: (saved: Note) => void
 }
 
 function NoteCard({ note, dateKey, onDeleted, onSaved }: NoteCardProps) {
@@ -54,9 +54,10 @@ function NoteCard({ note, dateKey, onDeleted, onSaved }: NoteCardProps) {
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       dirty.current = false
-      putNote({ id: note.id, date: dateKey, title, content })
-        .then(() => setSavedAt(Date.now()))
-        .then(() => onSaved?.())
+      putNote({ id: note.id, date: dateKey, title, content }).then((saved) => {
+        setSavedAt(Date.now())
+        onSaved?.(saved)
+      })
     }, 600)
     return () => {
       if (timer.current) clearTimeout(timer.current)
@@ -79,7 +80,7 @@ function NoteCard({ note, dateKey, onDeleted, onSaved }: NoteCardProps) {
           date: dateKey,
           title: latestTitle.current,
           content: latestContent.current,
-        }).then(() => onSaved?.())
+        }).then((saved) => onSaved?.(saved))
       }
     }
   }, [note.id, dateKey, onSaved])
@@ -181,6 +182,11 @@ function NoteYearCalendar({ date, counts, onSelect, onShiftYear }: YearCalendarP
                 )}
               >
                 {day}
+                {count > 0 && !selected && (
+                  <span className="pointer-events-none absolute right-0.5 top-0 text-[9px] font-bold leading-none text-[#2a1c0d]">
+                    {count > 9 ? '9+' : count}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -227,6 +233,12 @@ export function NotesPage() {
     }
   }, [])
 
+  // 展开年历时刷新数据，避免新建/编辑笔记后年历高亮不同步
+  useEffect(() => {
+    if (!showCalendar) return
+    load()
+  }, [showCalendar, load])
+
   const dayNotes = useMemo(
     () => (allNotes ?? []).filter((n) => n.date === date),
     [allNotes, date],
@@ -242,12 +254,23 @@ export function NotesPage() {
     return counts
   }, [allNotes, date])
 
+  const upsertNoteInState = useCallback((saved: Note) => {
+    setAllNotes((prev) => {
+      if (!prev) return [saved]
+      const idx = prev.findIndex((n) => n.id === saved.id)
+      if (idx === -1) return [...prev, saved]
+      const next = [...prev]
+      next[idx] = saved
+      return next
+    })
+  }, [])
+
   const createNote = async () => {
     if (creating) return
     setCreating(true)
     try {
-      await putNote({ date, title: '', content: EMPTY_DOC })
-      await load()
+      const created = await putNote({ date, title: '', content: EMPTY_DOC })
+      upsertNoteInState(created)
     } finally {
       setCreating(false)
     }
@@ -271,7 +294,7 @@ export function NotesPage() {
     notesList = (
       <div className="space-y-4">
           {dayNotes.map((n) => (
-            <NoteCard key={n.id} note={n} dateKey={date} onDeleted={load} onSaved={load} />
+            <NoteCard key={n.id} note={n} dateKey={date} onDeleted={load} onSaved={upsertNoteInState} />
           ))}
       </div>
     )
