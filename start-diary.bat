@@ -4,6 +4,10 @@ set PATH=C:\Users\quan\.workbuddy\binaries\node\versions\22.22.2-2;%PATH%
 
 echo Starting diary backend + web app...
 
+rem free ports 5188/5189 from stale instances (old windows / zombie node)
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr /c:":5188 " ^| findstr /c:"LISTENING"') do taskkill /pid %%p /f >nul 2>&1
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr /c:":5189 " ^| findstr /c:"LISTENING"') do taskkill /pid %%p /f >nul 2>&1
+
 rem backend: long-running process
 start /b node backend/index.mjs
 
