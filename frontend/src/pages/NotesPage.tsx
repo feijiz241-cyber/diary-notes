@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, NotebookPen, Plus, Trash2 } from 'lucide-react'
 import { getAllNotes, putNote, deleteNote, type Note } from '@/lib/db'
 import { Editor } from '@/components/Editor'
@@ -30,15 +30,23 @@ interface NoteCardProps {
   note: Note
   dateKey: string
   onDeleted: () => void
+  onSaved?: () => void
 }
 
-function NoteCard({ note, dateKey, onDeleted }: NoteCardProps) {
+function NoteCard({ note, dateKey, onDeleted, onSaved }: NoteCardProps) {
   const [title, setTitle] = useState(note.title)
   const [content, setContent] = useState<unknown>(note.content)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [confirmDel, setConfirmDel] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dirty = useRef(false)
+  const deleting = useRef(false)
+
+  // 保持最新值，供卸载 flush 使用
+  const latestTitle = useRef(title)
+  const latestContent = useRef(content)
+  latestTitle.current = title
+  latestContent.current = content
 
   // 自动保存（防抖 600ms，与日记一致）
   useEffect(() => {
@@ -46,7 +54,9 @@ function NoteCard({ note, dateKey, onDeleted }: NoteCardProps) {
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       dirty.current = false
-      putNote({ id: note.id, date: dateKey, title, content }).then(() => setSavedAt(Date.now()))
+      putNote({ id: note.id, date: dateKey, title, content })
+        .then(() => setSavedAt(Date.now()))
+        .then(() => onSaved?.())
     }, 600)
     return () => {
       if (timer.current) clearTimeout(timer.current)
@@ -60,11 +70,26 @@ function NoteCard({ note, dateKey, onDeleted }: NoteCardProps) {
     return () => clearTimeout(t)
   }, [confirmDel])
 
+  // 组件卸载时 flush 未保存的改动，避免切日期/路由时丢失正在输入的内容
+  useEffect(() => {
+    return () => {
+      if (dirty.current && !deleting.current) {
+        void putNote({
+          id: note.id,
+          date: dateKey,
+          title: latestTitle.current,
+          content: latestContent.current,
+        }).then(() => onSaved?.())
+      }
+    }
+  }, [note.id, dateKey, onSaved])
+
   const handleDelete = async () => {
     if (!confirmDel) {
       setConfirmDel(true)
       return
     }
+    deleting.current = true
     await deleteNote(note.id)
     onDeleted()
   }
@@ -195,7 +220,7 @@ export function NotesPage() {
   const [creating, setCreating] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
 
-  const load = () => getAllNotes().then(setAllNotes)
+  const load = useCallback(() => getAllNotes().then(setAllNotes), [])
 
   useEffect(() => {
     let active = true
@@ -250,9 +275,9 @@ export function NotesPage() {
   } else {
     notesList = (
       <div className="space-y-4">
-        {dayNotes.map((n) => (
-          <NoteCard key={n.id} note={n} dateKey={date} onDeleted={load} />
-        ))}
+          {dayNotes.map((n) => (
+            <NoteCard key={n.id} note={n} dateKey={date} onDeleted={load} onSaved={load} />
+          ))}
       </div>
     )
   }
