@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, NotebookPen, Plus, Trash2 } from 'lucide-react'
 import { getAllNotes, putNote, deleteNote, type Note } from '@/lib/db'
 import { Editor } from '@/components/Editor'
@@ -230,6 +230,30 @@ export function NotesPage() {
     }
   }
 
+  let notesList: ReactNode
+  if (allNotes === null) {
+    notesList = <p className="text-muted-foreground">加载中…</p>
+  } else if (dayNotes.length === 0) {
+    notesList = (
+      <Card className="flex flex-col items-center gap-3 p-10 text-center">
+        <NotebookPen className="size-8 text-muted-foreground" />
+        <p className="text-muted-foreground">这一天还没有笔记</p>
+        <Button variant="outline" onClick={createNote} disabled={creating}>
+          <Plus className="size-4" />
+          写一篇
+        </Button>
+      </Card>
+    )
+  } else {
+    notesList = (
+      <div className="space-y-4">
+        {dayNotes.map((n) => (
+          <NoteCard key={n.id} note={n} dateKey={date} onDeleted={load} />
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -279,24 +303,8 @@ export function NotesPage() {
         />
       )}
 
-      {allNotes === null ? (
-        <p className="text-muted-foreground">加载中…</p>
-      ) : dayNotes.length === 0 ? (
-        <Card className="flex flex-col items-center gap-3 p-10 text-center">
-          <NotebookPen className="size-8 text-muted-foreground" />
-          <p className="text-muted-foreground">这一天还没有笔记</p>
-          <Button variant="outline" onClick={createNote} disabled={creating}>
-            <Plus className="size-4" />
-            写一篇
-          </Button>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {dayNotes.map((n) => (
-            <NoteCard key={n.id} note={n} dateKey={date} onDeleted={load} />
-          ))}
-        </div>
-      )}
+      {/* 年历查找模式不显示笔记列表/空状态，保持查找视图干净 */}
+      {!showCalendar && notesList}
     </div>
   )
 }
