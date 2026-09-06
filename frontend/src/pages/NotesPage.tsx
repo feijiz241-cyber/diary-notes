@@ -148,17 +148,17 @@ function NoteYearCalendar({ date, counts, onSelect, onShiftYear }: YearCalendarP
     return (
       <Card key={month} className="p-3">
         <h3 className="mb-2 text-center text-sm font-extrabold">{month}月</h3>
-        <div className="grid grid-cols-7 gap-0.5">
+        <div className="grid grid-cols-7 border-2 border-[var(--mc-outline)]">
           {WEEKDAYS.map((w) => (
             <div
               key={w}
-              className="flex aspect-square items-center justify-center border border-[var(--mc-outline)] text-center text-[10px] font-bold text-muted-foreground"
+              className="flex aspect-square items-center justify-center border border-[var(--mc-outline)]/40 bg-muted/30 text-center text-[10px] font-bold text-muted-foreground"
             >
               {w}
             </div>
           ))}
           {Array.from({ length: firstDay }, (_, i) => (
-            <div key={`blank-${i}`} />
+            <div key={`blank-${i}`} className="aspect-square border border-[var(--mc-outline)]/40" />
           ))}
           {Array.from({ length: dim }, (_, i) => {
             const day = i + 1
@@ -172,17 +172,17 @@ function NoteYearCalendar({ date, counts, onSelect, onShiftYear }: YearCalendarP
                 title={count ? `${key} · ${count} 篇笔记` : key}
                 aria-label={count ? `${key}，${count} 篇笔记` : key}
                 className={cn(
-                  'relative flex aspect-square items-center justify-center rounded-none border text-xs font-semibold transition-colors',
+                  'relative flex aspect-square w-full items-center justify-center rounded-none border text-xs font-semibold transition-colors hover:bg-muted',
                   selected
-                    ? 'border-[var(--mc-outline)] bg-primary text-primary-foreground ring-2 ring-[var(--mc-outline)] ring-inset'
+                    ? 'border-[var(--mc-outline)] bg-primary text-primary-foreground'
                     : count
-                      ? 'border-[var(--mc-outline)] bg-primary/85 font-bold text-primary-foreground hover:bg-primary/75'
-                      : 'border-[var(--mc-outline)]/40 hover:bg-muted',
+                      ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)]'
+                      : 'border-[var(--mc-outline)]/40',
                 )}
               >
                 {day}
                 {count > 0 && !selected && (
-                  <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-[var(--mc-plank)] text-[9px] font-bold leading-none text-[#2a1c0d] ring-1 ring-[var(--mc-outline)]">
+                  <span className="pointer-events-none absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[9px] font-bold leading-none text-[#2a1c0d]">
                     {count > 9 ? '9+' : count}
                   </span>
                 )}
