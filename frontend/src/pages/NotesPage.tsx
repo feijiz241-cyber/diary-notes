@@ -176,8 +176,8 @@ function NoteYearCalendar({ date, counts, onSelect, onShiftYear }: YearCalendarP
                   selected
                     ? 'border-[var(--mc-outline)] bg-primary text-primary-foreground'
                     : count
-                      ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)] hover:bg-muted'
-                      : 'border-[var(--mc-outline)] hover:bg-muted',
+                      ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)] font-bold text-[#2a1c0d] shadow-[inset_0_2px_0_var(--mc-plank-light),inset_0_-2px_0_var(--mc-plank-dark)] hover:brightness-105'
+                      : 'border-[var(--mc-outline)]/40 hover:bg-muted',
                 )}
               >
                 {day}
