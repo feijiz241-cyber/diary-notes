@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-set PATH=C:\Users\quan\.workbuddy\binaries\node\versions\22.22.2;%PATH%
+set PATH=C:\Users\quan\.workbuddy\binaries\node\versions\22.22.2-2;%PATH%
 
 echo Starting diary backend + web app...
 

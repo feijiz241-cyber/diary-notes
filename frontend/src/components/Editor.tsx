@@ -14,6 +14,8 @@ interface EditorProps {
   dateKey: string
   /** 只读预览模式（隐藏工具栏与上传，禁止编辑） */
   editable?: boolean
+  /** 空内容占位文案 */
+  placeholder?: string
 }
 
 function ToolbarButton({
@@ -44,12 +46,12 @@ function ToolbarButton({
   )
 }
 
-export function Editor({ value, onChange, dateKey, editable = true }: EditorProps) {
+export function Editor({ value, onChange, dateKey, editable = true, placeholder = '今天发生了什么……' }: EditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
       ImageNode,
-      Placeholder.configure({ placeholder: '今天发生了什么……' }),
+      Placeholder.configure({ placeholder }),
     ],
     content: (value as object) ?? '',
     editable,

@@ -7,6 +7,7 @@ import { CalendarPage } from '@/pages/CalendarPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { ForestPage } from '@/pages/ForestPage'
+import { NotesPage } from '@/pages/NotesPage'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route path="/" element={<TodayPage />} />
             <Route path="/day/:date" element={<DayEditorPage />} />
+            <Route path="/notes" element={<NotesPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/forest" element={<ForestPage />} />
           <Route path="/search" element={<SearchPage />} />

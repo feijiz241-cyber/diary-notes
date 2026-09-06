@@ -1,7 +1,7 @@
-import { getAll, putEntry, putImage, clearAll, getImagesByEntry } from './db'
+import { getAll, putEntry, putImage, clearAll, getImagesByEntry, getAllNotes, putNote, clearAllNotes } from './db'
 import { docToText } from './editor-serialize'
 import { getMood } from './mood'
-import type { Entry } from './db'
+import type { Entry, Note } from './db'
 
 export interface ExportImage {
   id: string
@@ -13,6 +13,7 @@ export interface ExportBundle {
   version: 1
   exportedAt: string
   entries: Entry[]
+  notes?: Note[]
   images: ExportImage[]
 }
 
@@ -44,7 +45,7 @@ export async function buildExportBundle(): Promise<ExportBundle> {
       images.push({ id: rec.id, entryId: rec.entryId, dataUrl: await blobToDataUrl(rec.blob) })
     }
   }
-  return { version: 1, exportedAt: new Date().toISOString(), entries, images }
+  return { version: 1, exportedAt: new Date().toISOString(), entries, notes: await getAllNotes(), images }
 }
 
 export function downloadFile(filename: string, content: string, mime = 'application/json'): void {
@@ -72,13 +73,20 @@ export function entriesToMarkdown(entries: Entry[]): string {
   return sorted.map(entryToMarkdown).join('\n---\n\n')
 }
 
-/** 导入导出包：清空后还原全部日记与图片（即"还原备份"）。 */
+/** 导入导出包：清空后还原全部日记、笔记与图片（即"还原备份"）。 */
 export async function importBundle(bundle: ExportBundle): Promise<void> {
   if (!bundle || !Array.isArray(bundle.entries)) throw new Error('无效的备份文件')
   await clearAll()
   for (const e of bundle.entries) {
     const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = e
     await putEntry(rest)
+  }
+  // 笔记：先清空再按原 id 还原（保留身份，天数内多篇关系不变）
+  if (Array.isArray(bundle.notes)) {
+    await clearAllNotes()
+    for (const n of bundle.notes) {
+      await putNote({ id: n.id, date: n.date, title: n.title, content: n.content })
+    }
   }
   for (const img of bundle.images ?? []) {
     await putImage(img.entryId, dataUrlToBlob(img.dataUrl))

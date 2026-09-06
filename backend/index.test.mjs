@@ -80,6 +80,37 @@ describe('HTTP API (index.mjs)', () => {
     expect(imgGet.status).toBe(404)
   })
 
+  it('notes: PUT creates multiple, GET ?date filters, DELETE removes', async () => {
+    const put = async (body) =>
+      (
+        await fetch(`${BASE}/api/notes`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      ).json()
+    const a = await put({ date: '2026-09-06', title: 'n1', content: {} })
+    const b = await put({ date: '2026-09-06', title: 'n2', content: {} })
+    expect(a.id).toBeTruthy()
+    expect(b.id).not.toBe(a.id)
+
+    const list = await (await fetch(`${BASE}/api/notes?date=2026-09-06`)).json()
+    expect(list).toHaveLength(2)
+
+    const updated = await put({ id: a.id, date: '2026-09-06', title: 'n1-updated', content: {} })
+    expect(updated.title).toBe('n1-updated')
+
+    const del = await fetch(`${BASE}/api/notes/${b.id}`, { method: 'DELETE' })
+    expect(del.status).toBe(200)
+    expect(await (await fetch(`${BASE}/api/notes?date=2026-09-06`)).json()).toHaveLength(1)
+  })
+
+  it('export includes notes', async () => {
+    const exp = await (await fetch(`${BASE}/api/export`)).json()
+    expect(Array.isArray(exp.notes)).toBe(true)
+    expect(exp.notes.length).toBeGreaterThan(0)
+  })
+
   it('export and import roundtrip', async () => {
     const exp = await fetch(`${BASE}/api/export`)
     const data = await exp.json()

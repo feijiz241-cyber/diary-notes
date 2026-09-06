@@ -86,6 +86,35 @@ export function createServer(store, port = PORT) {
         return
       }
 
+      // ---------- notes（一天可多篇） ----------
+      if (pathname === '/api/notes' && method === 'GET') {
+        const date = searchParams.get('date')
+        const list = date ? await store.notesByDate(date) : await store.readNotes()
+        sendJSON(200, list)
+        return
+      }
+
+      if (pathname === '/api/notes' && method === 'PUT') {
+        const body = await readBody()
+        const n = await store.upsertNote(body)
+        sendJSON(200, n)
+        return
+      }
+
+      if (pathname === '/api/notes' && method === 'DELETE') {
+        await store.clearNotes()
+        sendJSON(200, { ok: true })
+        return
+      }
+
+      const noteIdMatch = pathname.match(/^\/api\/notes\/([^/]+)$/)
+      if (noteIdMatch && method === 'DELETE') {
+        const id = decodeURIComponent(noteIdMatch[1])
+        await store.deleteNote(id)
+        sendJSON(200, { ok: true })
+        return
+      }
+
       // ---------- images ----------
       if (pathname === '/api/images' && method === 'GET') {
         const entryId = searchParams.get('entryId')
@@ -126,7 +155,7 @@ export function createServer(store, port = PORT) {
 
       // ---------- export / import ----------
       if (pathname === '/api/export' && method === 'GET') {
-        sendJSON(200, { entries: await store.readAll() })
+        sendJSON(200, { entries: await store.readAll(), notes: await store.readNotes() })
         return
       }
 
@@ -134,7 +163,9 @@ export function createServer(store, port = PORT) {
         const body = await readBody()
         const entries = body.entries || []
         for (const e of entries) await store.upsertByDate(e)
-        sendJSON(200, { ok: true, count: entries.length })
+        const notes = body.notes || []
+        for (const n of notes) await store.upsertNote(n)
+        sendJSON(200, { ok: true, count: entries.length + notes.length })
         return
       }
 

@@ -9,6 +9,7 @@ export interface MockApi {
 export function createMockApi(): MockApi {
   const state = {
     entries: [] as Array<Record<string, unknown>>,
+    notes: [] as Array<Record<string, unknown>>,
     images: {} as Record<string, { entryId: string; ext: string; type: string; base64: string }>,
   }
 
@@ -91,6 +92,44 @@ export function createMockApi(): MockApi {
       return ok({ ok: true })
     }
 
+    // ---------- notes ----------
+    if (path === '/api/notes' && method === 'GET') {
+      const date = q.get('date')
+      const list = date ? state.notes.filter((n) => n.date === date) : state.notes
+      return ok(list)
+    }
+    if (path === '/api/notes' && method === 'PUT') {
+      const n = body as Record<string, unknown>
+      const now = Date.now()
+      if (n.id) {
+        const idx = state.notes.findIndex((x) => x.id === n.id)
+        if (idx >= 0) {
+          state.notes[idx] = { ...state.notes[idx], ...n, updatedAt: now }
+          return ok(state.notes[idx])
+        }
+      }
+      const created = {
+        title: '',
+        content: { type: 'doc', content: [] },
+        ...n,
+        id: (n.id as string) || 'note-' + Math.random().toString(36).slice(2),
+        createdAt: now,
+        updatedAt: now,
+      }
+      state.notes.push(created)
+      return ok(created)
+    }
+    if (path === '/api/notes' && method === 'DELETE') {
+      state.notes = []
+      return ok({ ok: true })
+    }
+    const noteMatch = path.match(/^\/api\/notes\/([^/]+)$/)
+    if (noteMatch && method === 'DELETE') {
+      const id = decodeURIComponent(noteMatch[1])
+      state.notes = state.notes.filter((x) => x.id !== id)
+      return ok({ ok: true })
+    }
+
     // ---------- images ----------
     if (path === '/api/images' && method === 'GET') {
       const entryId = q.get('entryId')
@@ -133,6 +172,7 @@ export function createMockApi(): MockApi {
     fetch: fetchImpl as unknown as typeof fetch,
     reset: () => {
       state.entries = []
+      state.notes = []
       state.images = {}
     },
   }

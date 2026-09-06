@@ -123,3 +123,49 @@ export async function clearAll(): Promise<void> {
   const res = await fetch(`${BASE}/entries`, { method: 'DELETE' })
   await parseJSON(res)
 }
+
+/** ---------- 笔记（一天可多篇，独立于日记） ---------- */
+
+export interface Note {
+  id: string
+  date: string // 'YYYY-MM-DD'
+  title: string
+  content: unknown // TipTap JSON
+  createdAt: number
+  updatedAt: number
+}
+
+export async function getNotesByDate(date: string): Promise<Note[]> {
+  const res = await fetch(`${BASE}/notes?date=${encodeURIComponent(date)}`)
+  return (await parseJSON(res)) as Note[]
+}
+
+export async function getAllNotes(): Promise<Note[]> {
+  const res = await fetch(`${BASE}/notes`)
+  return (await parseJSON(res)) as Note[]
+}
+
+/** 新建（无 id）或更新（有 id）一篇笔记。返回保存后的 Note。 */
+export async function putNote(data: {
+  id?: string
+  date: string
+  title: string
+  content: unknown
+}): Promise<Note> {
+  const res = await fetch(`${BASE}/notes`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  return (await parseJSON(res)) as Note
+}
+
+export async function deleteNote(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/notes/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  await parseJSON(res)
+}
+
+export async function clearAllNotes(): Promise<void> {
+  const res = await fetch(`${BASE}/notes`, { method: 'DELETE' })
+  await parseJSON(res)
+}

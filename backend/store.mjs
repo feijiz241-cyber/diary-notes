@@ -10,6 +10,7 @@ export class Store {
   constructor(dataDir) {
     this.dataDir = dataDir
     this.entriesFile = path.join(dataDir, 'diary.json')
+    this.notesFile = path.join(dataDir, 'notes.json')
     this.imagesDir = path.join(dataDir, 'images')
     this.manifestFile = path.join(this.imagesDir, 'manifest.json')
     this._writeChain = Promise.resolve()
@@ -21,6 +22,11 @@ export class Store {
       await fs.access(this.entriesFile)
     } catch {
       await this._writeJSON(this.entriesFile, [])
+    }
+    try {
+      await fs.access(this.notesFile)
+    } catch {
+      await this._writeJSON(this.notesFile, [])
     }
     try {
       await fs.access(this.manifestFile)
@@ -142,6 +148,60 @@ export class Store {
         await fs.rm(path.join(this.imagesDir, `${imgId}.${meta.ext}`), { force: true })
       }
       await this._writeJSON(this.manifestFile, {})
+    })
+  }
+
+  /** ---------- 笔记（一天可多篇，独立于日记存储） ---------- */
+
+  async readNotes() {
+    return this._readJSON(this.notesFile, [])
+  }
+
+  async notesByDate(date) {
+    const all = await this.readNotes()
+    return all.filter((n) => n.date === date)
+  }
+
+  /** 有 id 且存在则更新，否则新建一篇笔记。 */
+  async upsertNote(note) {
+    return this._enqueue(async () => {
+      const all = await this.readNotes()
+      const now = Date.now()
+      if (note.id) {
+        const idx = all.findIndex((n) => n.id === note.id)
+        if (idx >= 0) {
+          const updated = { ...all[idx], ...note, updatedAt: now }
+          all[idx] = updated
+          await this._writeJSON(this.notesFile, all)
+          return updated
+        }
+      }
+      const created = {
+        title: '',
+        content: { type: 'doc', content: [] },
+        ...note,
+        id: note.id || crypto.randomUUID(),
+        createdAt: now,
+        updatedAt: now,
+      }
+      all.push(created)
+      await this._writeJSON(this.notesFile, all)
+      return created
+    })
+  }
+
+  async deleteNote(id) {
+    return this._enqueue(async () => {
+      const all = await this.readNotes()
+      const next = all.filter((n) => n.id !== id)
+      if (next.length === all.length) return
+      await this._writeJSON(this.notesFile, next)
+    })
+  }
+
+  async clearNotes() {
+    return this._enqueue(async () => {
+      await this._writeJSON(this.notesFile, [])
     })
   }
 }
