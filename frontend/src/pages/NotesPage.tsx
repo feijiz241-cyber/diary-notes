@@ -235,31 +235,35 @@ export function NotesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="mc-sign inline-block px-3 py-1.5 text-2xl font-extrabold">笔记</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setDate((d) => shiftDate(d, -1))} aria-label="前一天">
-            <ChevronLeft className="size-4" />
-          </Button>
-          <span className="mc-sign inline-block min-w-40 px-3 py-1.5 text-center text-lg font-extrabold">
-            {formatHuman(date)}
-          </span>
-          <Button variant="outline" size="icon" onClick={() => setDate((d) => shiftDate(d, 1))} aria-label="后一天">
-            <ChevronRight className="size-4" />
-          </Button>
-          <Button variant="outline" onClick={() => setDate(toDateKey(new Date()))}>
-            今天
-          </Button>
           <Button
             variant={showCalendar ? 'default' : 'outline'}
-            size="icon"
             onClick={() => setShowCalendar((v) => !v)}
-            aria-label="切换年历"
-            title="年历（标出有笔记的日子）"
+            title={showCalendar ? '关闭年历' : '年历（标出有笔记的日子）'}
           >
             <CalendarDays className="size-4" />
+            {showCalendar ? '关闭年历' : '年历'}
           </Button>
-          <Button onClick={createNote} disabled={creating}>
-            <Plus className="size-4" />
-            新建笔记
-          </Button>
+          {/* 年历是纯查找模式：查找时不显示日期导航与“新建笔记”，避免误导 */}
+          {!showCalendar && (
+            <>
+              <Button variant="outline" size="icon" onClick={() => setDate((d) => shiftDate(d, -1))} aria-label="前一天">
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="mc-sign inline-block min-w-40 px-3 py-1.5 text-center text-lg font-extrabold">
+                {formatHuman(date)}
+              </span>
+              <Button variant="outline" size="icon" onClick={() => setDate((d) => shiftDate(d, 1))} aria-label="后一天">
+                <ChevronRight className="size-4" />
+              </Button>
+              <Button variant="outline" onClick={() => setDate(toDateKey(new Date()))}>
+                今天
+              </Button>
+              <Button onClick={createNote} disabled={creating}>
+                <Plus className="size-4" />
+                新建笔记
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
