@@ -125,7 +125,10 @@ function NoteYearCalendar({ date, counts, onSelect, onShiftYear }: YearCalendarP
         <h3 className="mb-2 text-center text-sm font-extrabold">{month}月</h3>
         <div className="grid grid-cols-7 gap-0.5">
           {WEEKDAYS.map((w) => (
-            <div key={w} className="pb-1 text-center text-[10px] font-bold text-muted-foreground">
+            <div
+              key={w}
+              className="flex aspect-square items-center justify-center border border-[var(--mc-outline)] text-center text-[10px] font-bold text-muted-foreground"
+            >
               {w}
             </div>
           ))}
@@ -149,7 +152,7 @@ function NoteYearCalendar({ date, counts, onSelect, onShiftYear }: YearCalendarP
                     ? 'border-[var(--mc-outline)] bg-primary text-primary-foreground'
                     : count
                       ? 'border-[var(--mc-outline)] bg-[var(--mc-plank)] hover:bg-muted'
-                      : 'border-transparent hover:bg-muted',
+                      : 'border-[var(--mc-outline)] hover:bg-muted',
                 )}
               >
                 {day}
