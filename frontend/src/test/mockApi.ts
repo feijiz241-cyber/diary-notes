@@ -11,6 +11,10 @@ export function createMockApi(): MockApi {
     entries: [] as Array<Record<string, unknown>>,
     notes: [] as Array<Record<string, unknown>>,
     images: {} as Record<string, { entryId: string; ext: string; type: string; base64: string }>,
+    files: {} as Record<
+      string,
+      { entryId: string; ext: string; name: string; type: string; size: number; base64: string }
+    >,
   }
 
   const binToBuffer = (b64: string): ArrayBuffer => {
@@ -66,6 +70,7 @@ export function createMockApi(): MockApi {
     if (path === '/api/entries' && method === 'DELETE') {
       state.entries = []
       state.images = {}
+      state.files = {}
       return ok({ ok: true })
     }
     const idMatch = path.match(/^\/api\/entries\/id\/([^/]+)$/)
@@ -86,6 +91,9 @@ export function createMockApi(): MockApi {
       if (target) {
         for (const [imgId, v] of Object.entries(state.images)) {
           if (v.entryId === (target.date as string)) delete state.images[imgId]
+        }
+        for (const [fid, v] of Object.entries(state.files)) {
+          if (v.entryId === (target.date as string)) delete state.files[fid]
         }
       }
       state.entries = state.entries.filter((x) => x.id !== id)
@@ -165,6 +173,47 @@ export function createMockApi(): MockApi {
       return ok({ ok: true })
     }
 
+    // ---------- files ----------
+    if (path === '/api/files' && method === 'GET') {
+      const entryId = q.get('entryId')
+      const list = Object.entries(state.files)
+        .filter(([, v]) => v.entryId === entryId)
+        .map(([id, v]) => ({ id, entryId: v.entryId, ext: v.ext, name: v.name, type: v.type, size: v.size }))
+      return ok(list)
+    }
+    if (path === '/api/files' && method === 'POST') {
+      state.files[body.fileId] = {
+        entryId: body.entryId,
+        ext: body.ext,
+        name: body.name,
+        type: body.type || 'application/octet-stream',
+        size: typeof body.size === 'number' ? body.size : 0,
+        base64: body.base64,
+      }
+      return ok({ ok: true })
+    }
+    if (path === '/api/files' && method === 'DELETE') {
+      state.files = {}
+      return ok({ ok: true })
+    }
+    const fileMatch = path.match(/^\/api\/files\/([^/]+)$/)
+    if (fileMatch && method === 'GET') {
+      const id = decodeURIComponent(fileMatch[1])
+      const f = state.files[id]
+      if (!f) return ok({ error: 'nf' }, 404)
+      return {
+        ok: true,
+        status: 200,
+        json: async () => f,
+        text: async () => JSON.stringify(f),
+        arrayBuffer: async () => binToBuffer(f.base64),
+      } as unknown as Response
+    }
+    if (fileMatch && method === 'DELETE') {
+      delete state.files[fileMatch[1]]
+      return ok({ ok: true })
+    }
+
     return ok({ error: 'not found' }, 404)
   }
 
@@ -174,6 +223,7 @@ export function createMockApi(): MockApi {
       state.entries = []
       state.notes = []
       state.images = {}
+      state.files = {}
     },
   }
 }

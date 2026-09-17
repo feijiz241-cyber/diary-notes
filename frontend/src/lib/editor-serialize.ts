@@ -17,6 +17,8 @@ export function docToText(doc: unknown): string {
     if (!node || typeof node !== 'object') return
     const n = node as JSONContent
     if (n.type === 'text' && n.text) parts.push(n.text)
+    // 附件节点：把文件名纳入文本，便于搜索与 Markdown 导出
+    if (n.type === 'fileAttachment' && n.attrs?.name) parts.push(`[附件] ${String(n.attrs.name)}`)
     if (Array.isArray(n.content)) n.content.forEach(walk)
   }
   walk(doc)

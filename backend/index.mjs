@@ -115,6 +115,67 @@ export function createServer(store, port = PORT) {
         return
       }
 
+      // ---------- files（附件：任意类型文件） ----------
+      if (pathname === '/api/files' && method === 'GET') {
+        const entryId = searchParams.get('entryId')
+        if (!entryId) {
+          sendJSON(400, { error: 'entryId required' })
+          return
+        }
+        sendJSON(200, await store.listFiles(entryId))
+        return
+      }
+
+      const fileIdMatch = pathname.match(/^\/api\/files\/([^/]+)$/)
+      if (fileIdMatch && method === 'GET') {
+        const id = decodeURIComponent(fileIdMatch[1])
+        const f = await store.getFile(id)
+        if (f) {
+          const name = f.name || `${id}.${f.ext || 'bin'}`
+          const ascii = name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_')
+          res.writeHead(200, {
+            'Content-Type': f.type || 'application/octet-stream',
+            'Content-Length': f.buffer.length,
+            'Content-Disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+          })
+          res.end(f.buffer)
+        } else {
+          sendJSON(404, { error: 'not found' })
+        }
+        return
+      }
+
+      if (pathname === '/api/files' && method === 'POST') {
+        const body = await readBody()
+        if (!body.fileId || !body.base64) {
+          sendJSON(400, { error: 'fileId and base64 required' })
+          return
+        }
+        await store.putFile(body.fileId, {
+          entryId: body.entryId,
+          ext: body.ext || 'bin',
+          name: body.name,
+          type: body.type,
+          size: body.size,
+          base64: body.base64,
+        })
+        sendJSON(200, { ok: true })
+        return
+      }
+
+      if (pathname === '/api/files' && method === 'DELETE') {
+        await store.clearAllFiles()
+        sendJSON(200, { ok: true })
+        return
+      }
+
+      if (fileIdMatch && method === 'DELETE') {
+        const id = decodeURIComponent(fileIdMatch[1])
+        await store.deleteFile(id)
+        sendJSON(200, { ok: true })
+        return
+      }
+
       // ---------- images ----------
       if (pathname === '/api/images' && method === 'GET') {
         const entryId = searchParams.get('entryId')
@@ -155,7 +216,11 @@ export function createServer(store, port = PORT) {
 
       // ---------- export / import ----------
       if (pathname === '/api/export' && method === 'GET') {
-        sendJSON(200, { entries: await store.readAll(), notes: await store.readNotes() })
+        sendJSON(200, {
+          entries: await store.readAll(),
+          notes: await store.readNotes(),
+          files: await store.readFilesManifest(),
+        })
         return
       }
 
@@ -165,7 +230,9 @@ export function createServer(store, port = PORT) {
         for (const e of entries) await store.upsertByDate(e)
         const notes = body.notes || []
         for (const n of notes) await store.upsertNote(n)
-        sendJSON(200, { ok: true, count: entries.length + notes.length })
+        const files = body.files || []
+        for (const f of files) await store.putFile(f.id, f)
+        sendJSON(200, { ok: true, count: entries.length + notes.length + files.length })
         return
       }
 

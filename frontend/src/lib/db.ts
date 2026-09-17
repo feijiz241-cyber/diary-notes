@@ -94,9 +94,9 @@ export async function deleteEntry(id: string): Promise<void> {
 
 /** ---------- 图片 ---------- */
 
-export async function putImage(entryId: string, blob: Blob): Promise<string> {
+export async function putImage(entryId: string, blob: Blob, id?: string): Promise<string> {
   const base64 = await blobToBase64(blob)
-  const imageId = uuid()
+  const imageId = id || uuid()
   const res = await fetch(`${BASE}/images`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -167,5 +167,84 @@ export async function deleteNote(id: string): Promise<void> {
 
 export async function clearAllNotes(): Promise<void> {
   const res = await fetch(`${BASE}/notes`, { method: 'DELETE' })
+  await parseJSON(res)
+}
+
+/** ---------- 附件（任意类型文件，独立于图片存储） ---------- */
+
+export interface FileRecord {
+  id: string
+  entryId: string
+  name: string
+  type: string
+  size: number
+  blob: Blob
+}
+
+/** 单个附件大小上限（base64 走 JSON，太大易失败）。 */
+export const MAX_FILE_BYTES = 20 * 1024 * 1024
+
+function extFromName(name: string): string {
+  const m = /\.([a-z0-9]{1,8})$/i.exec(name)
+  return m ? m[1].toLowerCase() : 'bin'
+}
+
+/** 上传一个附件，返回其 id（可传入已有 id 以在导入时保留身份）。 */
+export async function putFile(entryId: string, file: File | Blob, id?: string, name?: string): Promise<string> {
+  if (file.size > MAX_FILE_BYTES) {
+    throw new Error(`文件超过 20MB 上限`)
+  }
+  const filename = name || (file instanceof File ? file.name : 'attachment.bin')
+  const base64 = await blobToBase64(file)
+  const fileId = id || uuid()
+  const res = await fetch(`${BASE}/files`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fileId,
+      entryId,
+      ext: extFromName(filename),
+      name: filename,
+      type: file.type || 'application/octet-stream',
+      size: file.size,
+      base64,
+    }),
+  })
+  await parseJSON(res)
+  return fileId
+}
+
+export async function getFilesByEntry(entryId: string): Promise<FileRecord[]> {
+  const res = await fetch(`${BASE}/files?entryId=${encodeURIComponent(entryId)}`)
+  const list = (await parseJSON(res)) as Array<{
+    id: string
+    entryId: string
+    name: string
+    type: string
+    size: number
+  }>
+  return Promise.all(
+    list.map(async (m) => {
+      const r = await fetch(`${BASE}/files/${m.id}`)
+      const buf = await r.arrayBuffer()
+      return {
+        id: m.id,
+        entryId: m.entryId,
+        name: m.name,
+        type: m.type,
+        size: m.size,
+        blob: new Blob([buf], { type: m.type }),
+      }
+    }),
+  )
+}
+
+export async function deleteFile(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/files/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  await parseJSON(res)
+}
+
+export async function clearAllFiles(): Promise<void> {
+  const res = await fetch(`${BASE}/files`, { method: 'DELETE' })
   await parseJSON(res)
 }

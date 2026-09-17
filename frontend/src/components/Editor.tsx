@@ -6,6 +6,8 @@ import { Bold, Italic, Heading2, List, ListOrdered, Quote, Code } from 'lucide-r
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import { ImageNode } from './ImageNode'
 import { ImageUpload } from './ImageUpload'
+import { FileNode } from './FileNode'
+import { FileUpload } from './FileUpload'
 import { cn } from '@/lib/utils'
 
 interface EditorProps {
@@ -51,6 +53,7 @@ export function Editor({ value, onChange, dateKey, editable = true, placeholder 
     extensions: [
       StarterKit,
       ImageNode,
+      FileNode,
       Placeholder.configure({ placeholder }),
     ],
     content: (value as object) ?? '',
@@ -131,6 +134,7 @@ export function Editor({ value, onChange, dateKey, editable = true, placeholder 
           <Code className="size-4" />
         </ToolbarButton>
         <ImageUpload editor={editor} dateKey={dateKey} />
+        <FileUpload editor={editor} dateKey={dateKey} />
       </div>
       <EditorContent editor={editor} />
     </div>

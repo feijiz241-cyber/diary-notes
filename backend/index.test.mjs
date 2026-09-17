@@ -105,10 +105,49 @@ describe('HTTP API (index.mjs)', () => {
     expect(await (await fetch(`${BASE}/api/notes?date=2026-09-06`)).json()).toHaveLength(1)
   })
 
-  it('export includes notes', async () => {
+  it('files: POST uploads, GET lists/downloads, DELETE removes', async () => {
+    const content = 'file-bytes-中文'
+    const b64 = Buffer.from(content).toString('base64')
+    const post = await fetch(`${BASE}/api/files`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileId: 'fileA',
+        entryId: '2026-09-17',
+        ext: 'txt',
+        name: '说明.txt',
+        type: 'text/plain',
+        size: Buffer.byteLength(content),
+        base64: b64,
+      }),
+    })
+    expect(post.status).toBe(200)
+
+    const list = await (await fetch(`${BASE}/api/files?entryId=2026-09-17`)).json()
+    expect(list).toHaveLength(1)
+    expect(list[0].name).toBe('说明.txt')
+
+    const get = await fetch(`${BASE}/api/files/fileA`)
+    expect(get.status).toBe(200)
+    expect(get.headers.get('content-type')).toBe('text/plain')
+    expect(get.headers.get('content-disposition')).toContain('attachment')
+    expect(Buffer.from(await get.arrayBuffer()).toString('utf8')).toBe(content)
+
+    const del = await fetch(`${BASE}/api/files/fileA`, { method: 'DELETE' })
+    expect(del.status).toBe(200)
+    expect(await (await fetch(`${BASE}/api/files?entryId=2026-09-17`)).json()).toHaveLength(0)
+  })
+
+  it('files: missing entryId is rejected', async () => {
+    const res = await fetch(`${BASE}/api/files`)
+    expect(res.status).toBe(400)
+  })
+
+  it('export includes notes and files manifest', async () => {
     const exp = await (await fetch(`${BASE}/api/export`)).json()
     expect(Array.isArray(exp.notes)).toBe(true)
     expect(exp.notes.length).toBeGreaterThan(0)
+    expect(exp.files).toBeDefined()
   })
 
   it('export and import roundtrip', async () => {
