@@ -22,9 +22,15 @@ export default defineConfig({
       'lucide-react',
     ],
   },
+  // 用独立的预打包目录：换目录会让依赖 URL 变化，从而绕开浏览器里旧缓存
+  cacheDir: path.resolve(__dirname, '../node_modules/.vite-dev'),
   server: {
     port: 5188,
     strictPort: true,
+    // 本地开发禁用浏览器缓存，避免依赖被长期缓存后出现 net::ERR_CACHE_READ_FAILURE 坏缓存白屏
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    },
     proxy: {
       '/api': 'http://localhost:5189',
     },
