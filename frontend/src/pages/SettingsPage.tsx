@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { Download, Upload, Trash2, Sun, Moon, Check } from 'lucide-react'
+import { Download, Upload, Trash2, Sun, Moon, Check, Eraser } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/dialog'
 import { useTheme } from '@/components/ThemeProvider'
 import { buildExportBundle, downloadFile, entriesToMarkdown, importBundle } from '@/lib/export'
-import { getAll, clearAll } from '@/lib/db'
+import { getAll, clearAllNotes, clearEntries } from '@/lib/db'
+import { cleanupOrphanAssets } from '@/lib/cleanup'
 import { hasBrowserData, migrateBrowserToBackend } from '@/lib/migrate'
 import { toDateKey } from '@/lib/utils'
 
@@ -66,9 +67,25 @@ export function SettingsPage() {
     e.target.value = ''
   }
 
-  const onClear = async () => {
-    await clearAll()
-    setStatus('已清空全部日记。')
+  const onCleanup = async () => {
+    try {
+      const r = await cleanupOrphanAssets()
+      setStatus(
+        `清理完成：删除 ${r.removedImages} 张图片、${r.removedFiles} 个附件；保留 ${r.keptImages} 张图片、${r.keptFiles} 个附件。`,
+      )
+    } catch {
+      setStatus('清理失败，请重试。')
+    }
+  }
+
+  const onClearDiary = async () => {
+    await clearEntries()
+    setStatus('已清空全部日记（笔记与图片/附件未动）。')
+  }
+
+  const onClearNotes = async () => {
+    await clearAllNotes()
+    setStatus('已清空全部笔记（日记与图片/附件未动）。')
   }
 
   return (
@@ -128,12 +145,50 @@ export function SettingsPage() {
         </Card>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">维护</CardTitle>
+          <CardDescription>
+            清理没有被任何日记或笔记引用的图片与附件（例如插入后又移除的素材）。仍被引用的不会被删除。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Eraser className="size-4" /> 清理未引用素材
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>确认清理？</DialogTitle>
+                <DialogDescription>
+                  将扫描全部日记与笔记，删除没有任何内容引用的图片与附件。此操作不可恢复。
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2">
+                <DialogClose asChild>
+                  <Button variant="outline">取消</Button>
+                </DialogClose>
+                <DialogClose asChild>
+                  <Button onClick={onCleanup}>
+                    <Check className="size-4" /> 确认清理
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
+
       <Card className="border-destructive/40">
         <CardHeader>
           <CardTitle className="text-base text-destructive">危险区域</CardTitle>
-          <CardDescription>清空操作不可恢复，请先导出备份。</CardDescription>
+          <CardDescription>
+            清空操作不可恢复，请先导出备份。图片与附件不会被连带删除，可用上方「清理未引用素材」回收。
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-wrap gap-2">
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="destructive">
@@ -142,9 +197,9 @@ export function SettingsPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>确认清空？</DialogTitle>
+                <DialogTitle>确认清空全部日记？</DialogTitle>
                 <DialogDescription>
-                  这将删除全部日记与图片，且无法恢复。建议先导出 JSON 备份。
+                  将删除全部日记内容，不影响笔记与图片/附件。此操作不可恢复。
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="gap-2">
@@ -152,7 +207,33 @@ export function SettingsPage() {
                   <Button variant="outline">取消</Button>
                 </DialogClose>
                 <DialogClose asChild>
-                  <Button variant="destructive" onClick={onClear}>
+                  <Button variant="destructive" onClick={onClearDiary}>
+                    <Check className="size-4" /> 确认清空
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="destructive">
+                <Trash2 className="size-4" /> 清空全部笔记
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>确认清空全部笔记？</DialogTitle>
+                <DialogDescription>
+                  将删除全部笔记内容，不影响日记与图片/附件。此操作不可恢复。
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2">
+                <DialogClose asChild>
+                  <Button variant="outline">取消</Button>
+                </DialogClose>
+                <DialogClose asChild>
+                  <Button variant="destructive" onClick={onClearNotes}>
                     <Check className="size-4" /> 确认清空
                   </Button>
                 </DialogClose>
@@ -164,7 +245,7 @@ export function SettingsPage() {
 
       <Separator />
       <p className="text-center text-xs text-muted-foreground">
-        所有数据保存在本机文件夹（data/），由本地后端读写，不会上传到任何服务器。
+        所有数据保存在本机文件夹（backend/data/），由本地后端读写，不会上传到任何服务器。
       </p>
     </div>
   )

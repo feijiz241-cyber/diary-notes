@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CalendarDays, ChevronLeft, ChevronRight, NotebookPen, Plus, Trash2 } from 'lucide-react'
 import { getAllNotes, putNote, deleteNote, type Note } from '@/lib/db'
 import { Editor } from '@/components/Editor'
@@ -211,7 +212,9 @@ function NoteYearCalendar({ date, counts, onSelect, onShiftYear }: YearCalendarP
 }
 
 export function NotesPage() {
-  const [date, setDate] = useState(() => toDateKey(new Date()))
+  // 支持 /notes?date=YYYY-MM-DD 深链（从搜索页跳转过来）
+  const [searchParams] = useSearchParams()
+  const [date, setDate] = useState(() => searchParams.get('date') || toDateKey(new Date()))
   const [allNotes, setAllNotes] = useState<Note[] | null>(null)
   const [creating, setCreating] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
@@ -227,6 +230,12 @@ export function NotesPage() {
       active = false
     }
   }, [])
+
+  // 从搜索页跳转时 URL 上的 date 变化，同步切到对应日期
+  useEffect(() => {
+    const d = searchParams.get('date')
+    if (d) setDate(d)
+  }, [searchParams])
 
   // 展开年历时刷新数据，避免新建/编辑笔记后年历高亮不同步
   useEffect(() => {

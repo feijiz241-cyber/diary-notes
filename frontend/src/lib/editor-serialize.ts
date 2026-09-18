@@ -25,6 +25,22 @@ export function docToText(doc: unknown): string {
   return parts.join('')
 }
 
+/** 收集文档里引用的图片 / 附件 id（供「清理未引用素材」使用）。 */
+export function collectAssetIds(doc: unknown): { imageIds: string[]; fileIds: string[] } {
+  const imageIds: string[] = []
+  const fileIds: string[] = []
+  const walk = (node: unknown) => {
+    if (!node || typeof node !== 'object') return
+    const n = node as JSONContent
+    const attrs = n.attrs as Record<string, unknown> | undefined
+    if (n.type === 'image' && attrs?.imageId) imageIds.push(String(attrs.imageId))
+    if (n.type === 'fileAttachment' && attrs?.fileId) fileIds.push(String(attrs.fileId))
+    if (Array.isArray(n.content)) n.content.forEach(walk)
+  }
+  walk(doc)
+  return { imageIds, fileIds }
+}
+
 /** 存储格式互转：直接以 JSON 字符串保存/读取 TipTap 文档。 */
 export function serialize(content: unknown): string {
   return JSON.stringify(content ?? null)

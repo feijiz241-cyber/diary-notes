@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { createMockApi } from '../test/mockApi'
-import { searchEntries } from './search'
-import { putEntry } from './db'
+import { searchAll, searchEntries } from './search'
+import { putEntry, putNote } from './db'
 
 const mock = createMockApi()
 
@@ -41,5 +41,40 @@ describe('search', () => {
     expect(none.length).toBe(0)
 
     expect(await searchEntries('')).toEqual([])
+  })
+
+  it('searchAll 同时搜日记与笔记，并用 kind 标注来源', async () => {
+    await putEntry({
+      date: '2026-07-10',
+      title: '旅行',
+      content: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: '去了海边' }] }],
+      },
+      mood: null,
+      tags: [],
+    })
+    await putNote({
+      date: '2026-07-11',
+      title: '装备清单',
+      content: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: '旅行要带的东西' }] }],
+      },
+    })
+
+    const r = await searchAll('旅行')
+    expect(r.length).toBe(2)
+    expect(r.map((x) => x.kind).sort()).toEqual(['diary', 'note'])
+    expect(r.every((x) => x.snippet.length > 0)).toBe(true)
+  })
+
+  it('searchEntries 仍只搜日记（森林页高亮用）', async () => {
+    await putNote({
+      date: '2026-07-11',
+      title: '旅行笔记',
+      content: { type: 'doc', content: [] },
+    })
+    expect(await searchEntries('旅行')).toHaveLength(0)
   })
 })

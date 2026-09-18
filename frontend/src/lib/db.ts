@@ -119,8 +119,34 @@ export async function getImagesByEntry(entryId: string): Promise<ImageRecord[]> 
   )
 }
 
-export async function clearAll(): Promise<void> {
+/** 只清空日记条目（不影响笔记与图片/附件）。 */
+export async function clearEntries(): Promise<void> {
   const res = await fetch(`${BASE}/entries`, { method: 'DELETE' })
+  await parseJSON(res)
+}
+
+/** 全量重置：日记 + 笔记 + 图片 + 附件（用于「还原备份」）。 */
+export async function clearAll(): Promise<void> {
+  const res = await fetch(`${BASE}/data`, { method: 'DELETE' })
+  await parseJSON(res)
+}
+
+/** 图片元数据（不含内容），供「清理未引用素材」使用。 */
+export interface ImageMeta {
+  id: string
+  entryId: string
+  ext: string
+  type: string
+}
+
+/** 列出全部图片元数据（不下载内容）。 */
+export async function listAllImages(): Promise<ImageMeta[]> {
+  const res = await fetch(`${BASE}/images`)
+  return (await parseJSON(res)) as ImageMeta[]
+}
+
+export async function deleteImage(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/images/${encodeURIComponent(id)}`, { method: 'DELETE' })
   await parseJSON(res)
 }
 
@@ -247,4 +273,19 @@ export async function deleteFile(id: string): Promise<void> {
 export async function clearAllFiles(): Promise<void> {
   const res = await fetch(`${BASE}/files`, { method: 'DELETE' })
   await parseJSON(res)
+}
+
+/** 附件元数据（不含内容），供「清理未引用素材」使用。 */
+export interface FileMeta {
+  id: string
+  entryId: string
+  name: string
+  type: string
+  size: number
+}
+
+/** 列出全部附件元数据（不下载内容）。 */
+export async function listAllFiles(): Promise<FileMeta[]> {
+  const res = await fetch(`${BASE}/files`)
+  return (await parseJSON(res)) as FileMeta[]
 }
