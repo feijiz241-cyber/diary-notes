@@ -32,7 +32,8 @@ export default defineConfig({
       'Cache-Control': 'no-store, no-cache, must-revalidate',
     },
     proxy: {
-      '/api': 'http://localhost:5189',
+      // 后端只监听 IPv4 回环，这里写死 127.0.0.1 避免 localhost 解析到 ::1 导致连不上
+      '/api': 'http://127.0.0.1:5189',
     },
   },
   resolve: {

@@ -15,10 +15,11 @@ rem frontend: call vite directly (skip npm overhead)
 start /b node node_modules/vite/bin/vite.js --config frontend/vite.config.ts --port 5188
 
 rem wait for backend (up to ~10s)
+rem backend binds 127.0.0.1 only (private data), so probe the literal IPv4 loopback
 echo Waiting for backend...
 set /a tries=0
 :wait_backend
-node -e "fetch('http://localhost:5189/api/entries').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+node -e "fetch('http://127.0.0.1:5189/api/entries').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 if %errorlevel%==0 goto backend_ok
 set /a tries+=1
 if %tries% GEQ 10 (
