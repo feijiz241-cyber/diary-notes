@@ -13,51 +13,87 @@ interface DayEditorProps {
 
 const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] }
 
+/** 草稿：日期与内容成对保存，避免切日期时张冠李戴。 */
+interface Draft {
+  date: string
+  data: Partial<Entry>
+}
+
+function hasContent(data: Partial<Entry>): boolean {
+  const content = (data.content as object) ?? EMPTY_DOC
+  return (
+    !isEmptyDoc(content) ||
+    (data.title ?? '').trim() !== '' ||
+    !!data.mood ||
+    (data.tags ?? []).length > 0
+  )
+}
+
 export function DayEditor({ dateKey }: DayEditorProps) {
   const [entry, setEntry] = useState<Partial<Entry> | null>(null)
-  const [loaded, setLoaded] = useState(false)
+  // 已加载完成的日期；用 dateKey 比对，避免「新日期 + 旧内容」的中间态被写回
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dirty = useRef(false)
+  const pending = useRef<Draft | null>(null)
+
+  const loaded = loadedFor === dateKey
+
+  const patch = (p: Partial<Entry>) => {
+    dirty.current = true
+    setEntry((prev) => ({ ...(prev ?? {}), ...p }))
+  }
+
+  /** 把 pending 草稿写入后端（空内容不落盘，与原行为一致）。 */
+  const flush = () => {
+    const draft = pending.current
+    pending.current = null
+    dirty.current = false
+    if (!draft || !hasContent(draft.data)) return
+    const content = (draft.data.content as object) ?? EMPTY_DOC
+    void putEntry({
+      date: draft.date,
+      title: draft.data.title ?? '',
+      content,
+      mood: draft.data.mood ?? null,
+      tags: draft.data.tags ?? [],
+    }).then(() => setSavedAt(Date.now()))
+  }
 
   useEffect(() => {
     let active = true
-    setLoaded(false)
     getByDate(dateKey).then((e) => {
       if (!active) return
       setEntry(e ?? null)
-      setLoaded(true)
+      setLoadedFor(dateKey)
     })
     return () => {
       active = false
     }
   }, [dateKey])
 
-  const patch = (p: Partial<Entry>) => setEntry((prev) => ({ ...(prev ?? {}), ...p }))
-
+  // 防抖自动保存
   useEffect(() => {
     if (!loaded) return
+    pending.current = { date: dateKey, data: entry ?? {} }
+    if (!dirty.current) return
     if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => {
-      const data = entry ?? {}
-      const content = (data.content as object) ?? EMPTY_DOC
-      const hasContent =
-        !isEmptyDoc(content) ||
-        (data.title ?? '').trim() !== '' ||
-        !!data.mood ||
-        (data.tags ?? []).length > 0
-      if (!hasContent) return
-      putEntry({
-        date: dateKey,
-        title: data.title ?? '',
-        content,
-        mood: data.mood ?? null,
-        tags: data.tags ?? [],
-      }).then(() => setSavedAt(Date.now()))
-    }, 600)
+    timer.current = setTimeout(flush, 600)
     return () => {
       if (timer.current) clearTimeout(timer.current)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry, loaded, dateKey])
+
+  // 切换日期或离开页面时，把未保存的草稿立即落盘，避免丢失
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current)
+      if (dirty.current) flush()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateKey])
 
   if (!loaded) return <p className="text-muted-foreground">加载中…</p>
 
