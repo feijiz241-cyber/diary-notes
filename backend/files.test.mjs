@@ -85,10 +85,31 @@ describe('Store files (attachments)', () => {
     expect(fs.existsSync(path.join(dir, 'files', 'f1.txt'))).toBe(false)
   })
 
-  it('clearAll removes attachments too', async () => {
+  it('clearAllData 清空日记、笔记与全部素材', async () => {
     const { s } = await makeStore()
+    await s.upsertByDate({ date: '2026-09-17', title: 't', content: {}, mood: null, tags: [] })
+    await s.upsertNote({ date: '2026-09-17', title: 'n', content: {} })
     await s.putFile('f1', { entryId: '2026-09-17', ext: 'txt', name: 'f1.txt', base64: b64('1') })
-    await s.clearAll()
-    expect(await s.listFiles('2026-09-17')).toHaveLength(0)
+    await s.putImage('i1', { entryId: '2026-09-17', ext: 'png', base64: b64('i') })
+
+    await s.clearAllData()
+
+    expect(await s.readAll()).toHaveLength(0)
+    expect(await s.readNotes()).toHaveLength(0)
+    expect(await s.listAllFiles()).toHaveLength(0)
+    expect(await s.listAllImages()).toHaveLength(0)
+  })
+
+  it('clearEntries 只清日记条目，不动笔记与共享素材', async () => {
+    const { s } = await makeStore()
+    await s.upsertByDate({ date: '2026-09-17', title: 't', content: {}, mood: null, tags: [] })
+    await s.upsertNote({ date: '2026-09-17', title: 'n', content: {} })
+    await s.putFile('f1', { entryId: '2026-09-17', ext: 'txt', name: 'f1.txt', base64: b64('1') })
+
+    await s.clearEntries()
+
+    expect(await s.readAll()).toHaveLength(0)
+    expect(await s.readNotes()).toHaveLength(1)
+    expect(await s.listAllFiles()).toHaveLength(1)
   })
 })

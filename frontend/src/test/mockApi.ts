@@ -68,7 +68,13 @@ export function createMockApi(): MockApi {
       return ok(created)
     }
     if (path === '/api/entries' && method === 'DELETE') {
+      // 只清日记条目，素材不动（与后端 clearEntries 一致）
       state.entries = []
+      return ok({ ok: true })
+    }
+    if (path === '/api/data' && method === 'DELETE') {
+      state.entries = []
+      state.notes = []
       state.images = {}
       state.files = {}
       return ok({ ok: true })
@@ -142,7 +148,7 @@ export function createMockApi(): MockApi {
     if (path === '/api/images' && method === 'GET') {
       const entryId = q.get('entryId')
       const list = Object.entries(state.images)
-        .filter(([, v]) => v.entryId === entryId)
+        .filter(([, v]) => (entryId ? v.entryId === entryId : true))
         .map(([id, v]) => ({ id, ...v }))
       return ok(list)
     }
@@ -177,7 +183,7 @@ export function createMockApi(): MockApi {
     if (path === '/api/files' && method === 'GET') {
       const entryId = q.get('entryId')
       const list = Object.entries(state.files)
-        .filter(([, v]) => v.entryId === entryId)
+        .filter(([, v]) => (entryId ? v.entryId === entryId : true))
         .map(([id, v]) => ({ id, entryId: v.entryId, ext: v.ext, name: v.name, type: v.type, size: v.size }))
       return ok(list)
     }

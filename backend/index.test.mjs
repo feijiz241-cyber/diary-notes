@@ -8,7 +8,7 @@ import { Store } from './store.mjs'
 import { createServer } from './index.mjs'
 
 const PORT = 5271
-const BASE = `http://localhost:${PORT}`
+const BASE = `http://127.0.0.1:${PORT}`
 
 let server
 let store
@@ -27,6 +27,14 @@ afterAll(() => {
 })
 
 describe('HTTP API (index.mjs)', () => {
+  it('默认只监听回环地址，不暴露到局域网', async () => {
+    const s = createServer(store, 0)
+    if (!s.listening) await once(s, 'listening')
+    const addr = s.address()
+    expect(addr.address).toBe('127.0.0.1')
+    await new Promise((r) => s.close(r))
+  })
+
   it('PUT /api/entries then GET /api/entries/:date', async () => {
     const putRes = await fetch(`${BASE}/api/entries`, {
       method: 'PUT',
@@ -138,9 +146,27 @@ describe('HTTP API (index.mjs)', () => {
     expect(await (await fetch(`${BASE}/api/files?entryId=2026-09-17`)).json()).toHaveLength(0)
   })
 
-  it('files: missing entryId is rejected', async () => {
-    const res = await fetch(`${BASE}/api/files`)
-    expect(res.status).toBe(400)
+  it('files / images: 不带 entryId 时返回全部（供清理未引用素材）', async () => {
+    const post = await fetch(`${BASE}/api/files`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileId: 'fileAll',
+        entryId: '2026-09-20',
+        ext: 'txt',
+        name: 'all.txt',
+        type: 'text/plain',
+        base64: Buffer.from('all').toString('base64'),
+      }),
+    })
+    expect(post.status).toBe(200)
+
+    const allFiles = await (await fetch(`${BASE}/api/files`)).json()
+    expect(allFiles.some((f) => f.id === 'fileAll')).toBe(true)
+
+    const allImages = await (await fetch(`${BASE}/api/images`)).json()
+    expect(Array.isArray(allImages)).toBe(true)
+    expect(allImages.every((i) => typeof i.id === 'string')).toBe(true)
   })
 
   it('export includes notes and files manifest', async () => {
@@ -164,5 +190,27 @@ describe('HTTP API (index.mjs)', () => {
     expect(imported.status).toBe(200)
     const list = await (await fetch(`${BASE}/api/entries?year=2026`)).json()
     expect(list.find((e) => e.date === '2026-08-01')).toBeTruthy()
+  })
+
+  it('清空粒度：DELETE /api/entries 只清日记，DELETE /api/data 全清', async () => {
+    const j = { 'Content-Type': 'application/json' }
+    await fetch(`${BASE}/api/entries`, {
+      method: 'PUT',
+      headers: j,
+      body: JSON.stringify({ date: '2026-12-01', title: 'd', content: {}, mood: null, tags: [] }),
+    })
+    await fetch(`${BASE}/api/notes`, {
+      method: 'PUT',
+      headers: j,
+      body: JSON.stringify({ date: '2026-12-01', title: 'n', content: {} }),
+    })
+
+    await fetch(`${BASE}/api/entries`, { method: 'DELETE' })
+    expect(await (await fetch(`${BASE}/api/entries`)).json()).toHaveLength(0)
+    expect((await (await fetch(`${BASE}/api/notes`)).json()).length).toBeGreaterThan(0)
+
+    await fetch(`${BASE}/api/data`, { method: 'DELETE' })
+    expect(await (await fetch(`${BASE}/api/entries`)).json()).toHaveLength(0)
+    expect(await (await fetch(`${BASE}/api/notes`)).json()).toHaveLength(0)
   })
 })

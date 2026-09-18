@@ -55,6 +55,63 @@ describe('Store (file persistence)', () => {
     expect(list[0].id).toBe('img2')
   })
 
+  it('原子写入：写入完成后不残留 .tmp 文件', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'diary-store-atomic-'))
+    const s = new Store(dir)
+    await s.init()
+    await s.upsertByDate({ date: '2026-07-12', title: 'x', content: {}, mood: null, tags: [] })
+    await s.putImage('i1', { entryId: '2026-07-12', ext: 'png', base64: 'aGk=' })
+    await s.putFile('f1', { entryId: '2026-07-12', ext: 'txt', name: 'a.txt', base64: 'aGk=' })
+    const leftovers = []
+    const walk = (d) => {
+      for (const name of fs.readdirSync(d)) {
+        const p = path.join(d, name)
+        if (fs.statSync(p).isDirectory()) walk(p)
+        else if (name.endsWith('.tmp')) leftovers.push(p)
+      }
+    }
+    walk(dir)
+    expect(leftovers).toEqual([])
+  })
+
+  it('原子写入：并发读永远不会读到“瞬间变空”', async () => {
+    const s = await makeStore()
+    const padding = 'x'.repeat(2000)
+    for (let i = 1; i <= 50; i++) {
+      await s.upsertByDate({
+        date: `2026-08-${String(i).padStart(2, '0')}`,
+        title: 'base' + i,
+        content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: padding }] }] },
+        mood: null,
+        tags: [],
+      })
+    }
+
+    let minSeen = Number.POSITIVE_INFINITY
+    const reader = (async () => {
+      for (let k = 0; k < 150; k++) {
+        const all = await s.readAll()
+        minSeen = Math.min(minSeen, all.length)
+        await new Promise((r) => setImmediate(r))
+      }
+    })()
+    const writer = (async () => {
+      for (let k = 1; k <= 40; k++) {
+        await s.upsertByDate({
+          date: `2026-09-${String((k % 28) + 1).padStart(2, '0')}`,
+          title: 'w' + k,
+          content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: padding }] }] },
+          mood: null,
+          tags: [],
+        })
+      }
+    })()
+    await Promise.all([reader, writer])
+
+    // 基线 50 条只增不减；一旦读到半截文件会回退成 []，minSeen 就会掉到 0
+    expect(minSeen).toBe(50)
+  })
+
   it('concurrent upserts do not lose data (write lock)', async () => {
     const s = await makeStore()
     await Promise.all(

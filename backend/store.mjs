@@ -16,6 +16,7 @@ export class Store {
     this.filesDir = path.join(dataDir, 'files')
     this.filesManifestFile = path.join(this.filesDir, 'manifest.json')
     this._writeChain = Promise.resolve()
+    this._tmpSeq = 0
   }
 
   async init() {
@@ -58,8 +59,37 @@ export class Store {
     }
   }
 
+  /**
+   * 原子写入：先写同目录临时文件，再 rename 替换。
+   * 避免「截断—写入」期间被并发读读到半截 JSON（那种情况下会回退成空数组）。
+   */
   async _writeJSON(file, data) {
-    await fs.writeFile(file, JSON.stringify(data, null, 2))
+    const tmp = `${file}.${process.pid}.${++this._tmpSeq}.tmp`
+    await fs.writeFile(tmp, JSON.stringify(data, null, 2))
+    try {
+      await this._renameOver(tmp, file)
+    } catch (err) {
+      await fs.rm(tmp, { force: true })
+      throw err
+    }
+  }
+
+  /**
+   * Windows 下若目标文件正被读句柄占用，rename 会抛 EPERM/EBUSY/EACCES。
+   * 短暂退避重试即可；重试期间读者只会看到完整的旧版或新版，不会看到半截内容。
+   */
+  async _renameOver(tmp, file, attempts = 8) {
+    for (let i = 1; ; i++) {
+      try {
+        await fs.rename(tmp, file)
+        return
+      } catch (err) {
+        const code = err && err.code
+        const retriable = code === 'EPERM' || code === 'EBUSY' || code === 'EACCES'
+        if (!retriable || i >= attempts) throw err
+        await new Promise((r) => setTimeout(r, 10 * i))
+      }
+    }
   }
 
   async readAll() {
@@ -163,14 +193,37 @@ export class Store {
       .map(([id, v]) => ({ id, ...v }))
   }
 
-  async clearAll() {
+  /** 全量图片元数据（供「清理未引用素材」使用）。 */
+  async listAllImages() {
+    const manifest = await this._readJSON(this.manifestFile, {})
+    return Object.entries(manifest).map(([id, v]) => ({ id, ...v }))
+  }
+
+  /** 清空全部图片（在已入队的写任务内调用）。 */
+  async _clearAllImages() {
+    const manifest = await this._readJSON(this.manifestFile, {})
+    for (const [imgId, meta] of Object.entries(manifest)) {
+      await fs.rm(path.join(this.imagesDir, `${imgId}.${meta.ext}`), { force: true })
+    }
+    await this._writeJSON(this.manifestFile, {})
+  }
+
+  /**
+   * 只清空日记条目，不动图片/附件。
+   * 素材按日期归属且与笔记共享，连带删除会波及同日笔记仍在引用的文件。
+   */
+  async clearEntries() {
     return this._enqueue(async () => {
       await this._writeJSON(this.entriesFile, [])
-      const manifest = await this._readJSON(this.manifestFile, {})
-      for (const [imgId, meta] of Object.entries(manifest)) {
-        await fs.rm(path.join(this.imagesDir, `${imgId}.${meta.ext}`), { force: true })
-      }
-      await this._writeJSON(this.manifestFile, {})
+    })
+  }
+
+  /** 全量重置：日记 + 笔记 + 图片 + 附件（用于「还原备份」）。 */
+  async clearAllData() {
+    return this._enqueue(async () => {
+      await this._writeJSON(this.entriesFile, [])
+      await this._writeJSON(this.notesFile, [])
+      await this._clearAllImages()
       await this._clearAllFiles()
     })
   }
@@ -234,6 +287,12 @@ export class Store {
     return Object.entries(manifest)
       .filter(([, v]) => v.entryId === entryId)
       .map(([id, v]) => ({ id, ...v }))
+  }
+
+  /** 全量附件元数据（供「清理未引用素材」使用）。 */
+  async listAllFiles() {
+    const manifest = await this.readFilesManifest()
+    return Object.entries(manifest).map(([id, v]) => ({ id, ...v }))
   }
 
   /** 写附件：base64 解码落盘，manifest 记录元数据（含原始文件名/类型/大小）。 */

@@ -3,12 +3,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Store } from './store.mjs'
 
 const PORT = process.env.PORT || 5189
+// 默认只监听本机回环地址：日记是私人数据，不应暴露给局域网。
+// 确有跨设备访问需求时，用 HOST=0.0.0.0 显式开启（届时请自行评估风险）。
+const HOST = process.env.HOST || '127.0.0.1'
 
 /**
  * 零依赖 HTTP 服务：把 REST API 接到 Store。
  * 返回已 listen 的 http.Server。
  */
-export function createServer(store, port = PORT) {
+export function createServer(store, port = PORT, host = HOST) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
     const { pathname, searchParams } = url
@@ -74,7 +77,8 @@ export function createServer(store, port = PORT) {
       }
 
       if (pathname === '/api/entries' && method === 'DELETE') {
-        await store.clearAll()
+        // 只清日记条目，素材由「清理未引用素材」单独处理
+        await store.clearEntries()
         sendJSON(200, { ok: true })
         return
       }
@@ -117,12 +121,9 @@ export function createServer(store, port = PORT) {
 
       // ---------- files（附件：任意类型文件） ----------
       if (pathname === '/api/files' && method === 'GET') {
+        // 不带 entryId 时返回全部（供「清理未引用素材」使用）
         const entryId = searchParams.get('entryId')
-        if (!entryId) {
-          sendJSON(400, { error: 'entryId required' })
-          return
-        }
-        sendJSON(200, await store.listFiles(entryId))
+        sendJSON(200, entryId ? await store.listFiles(entryId) : await store.listAllFiles())
         return
       }
 
@@ -178,12 +179,9 @@ export function createServer(store, port = PORT) {
 
       // ---------- images ----------
       if (pathname === '/api/images' && method === 'GET') {
+        // 不带 entryId 时返回全部（供「清理未引用素材」使用）
         const entryId = searchParams.get('entryId')
-        if (!entryId) {
-          sendJSON(400, { error: 'entryId required' })
-          return
-        }
-        sendJSON(200, await store.listImages(entryId))
+        sendJSON(200, entryId ? await store.listImages(entryId) : await store.listAllImages())
         return
       }
 
@@ -210,6 +208,13 @@ export function createServer(store, port = PORT) {
       if (imageIdMatch && method === 'DELETE') {
         const id = decodeURIComponent(imageIdMatch[1])
         await store.deleteImage(id)
+        sendJSON(200, { ok: true })
+        return
+      }
+
+      // ---------- 全量重置（日记 + 笔记 + 素材） ----------
+      if (pathname === '/api/data' && method === 'DELETE') {
+        await store.clearAllData()
         sendJSON(200, { ok: true })
         return
       }
@@ -242,8 +247,8 @@ export function createServer(store, port = PORT) {
     }
   })
 
-  server.listen(port, () => {
-    console.log(`[diary-server] listening on http://localhost:${port}`)
+  server.listen(port, host, () => {
+    console.log(`[diary-server] listening on http://${host}:${port}`)
   })
   return server
 }
