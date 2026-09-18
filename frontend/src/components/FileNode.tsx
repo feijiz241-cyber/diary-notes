@@ -47,8 +47,8 @@ function FileView({ node, deleteNode, editor }: NodeViewProps) {
             type="button"
             onClick={() => deleteNode()}
             className="shrink-0 border-2 border-[var(--mc-outline)] p-1 transition-colors hover:bg-accent"
-            title="移除附件"
-            aria-label="移除附件"
+            title="移除附件（同时删除已上传的文件）"
+            aria-label="移除附件（同时删除已上传的文件）"
           >
             <X className="size-4" />
           </button>

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -8,6 +8,7 @@ import { ImageNode } from './ImageNode'
 import { ImageUpload } from './ImageUpload'
 import { FileNode } from './FileNode'
 import { FileUpload } from './FileUpload'
+import { purgeRemovedAssets, snapshotAssets, type AssetSnapshot } from '@/lib/asset-sync'
 import { cn } from '@/lib/utils'
 
 interface EditorProps {
@@ -49,6 +50,9 @@ function ToolbarButton({
 }
 
 export function Editor({ value, onChange, dateKey, editable = true, placeholder = '今天发生了什么……' }: EditorProps) {
+  // 当前文档引用的素材快照，用于在素材被移出正文时同步删除后端文件
+  const assetsRef = useRef<AssetSnapshot | null>(null)
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -58,17 +62,28 @@ export function Editor({ value, onChange, dateKey, editable = true, placeholder 
     ],
     content: (value as object) ?? '',
     editable,
-    onUpdate: editable ? ({ editor }) => onChange(editor.getJSON()) : undefined,
+    onUpdate: editable
+      ? ({ editor }) => {
+          const next = snapshotAssets(editor.getJSON())
+          const prev = assetsRef.current
+          assetsRef.current = next
+          // 先回收被移除的素材，再上报新内容
+          if (prev) void purgeRemovedAssets(prev, next)
+          onChange(editor.getJSON())
+        }
+      : undefined,
     editorProps: {
       attributes: { class: 'min-h-[240px] px-3 py-3' },
     },
   })
 
-  // 外部 value 变化（切换日期）时同步编辑器内容
+  // 外部 value 变化（切换日期）时同步编辑器内容，并重置素材基线
   useEffect(() => {
-    if (editor && value && JSON.stringify(editor.getJSON()) !== JSON.stringify(value)) {
+    if (!editor) return
+    if (value && JSON.stringify(editor.getJSON()) !== JSON.stringify(value)) {
       editor.commands.setContent(value as object, false)
     }
+    assetsRef.current = snapshotAssets(editor.getJSON())
   }, [editor, value])
 
   if (!editor) return null

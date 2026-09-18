@@ -149,7 +149,7 @@ export function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-base">维护</CardTitle>
           <CardDescription>
-            清理没有被任何日记或笔记引用的图片与附件（例如插入后又移除的素材）。仍被引用的不会被删除。
+            扫描全部日记与笔记，删除没有任何内容引用的图片与附件。从正文移除素材时已即时删除，这里用于回收历史遗留（例如删除请求失败、旧版本留下的文件）。仍被引用的不会被删除。
           </CardDescription>
         </CardHeader>
         <CardContent>
