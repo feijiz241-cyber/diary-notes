@@ -26,8 +26,8 @@ function NavItems({ orientation }: { orientation: 'vertical' | 'horizontal' }) {
               'flex items-center gap-3 rounded-none border-2 px-3 py-2 text-sm font-bold transition-[filter] pixel-press',
               orientation === 'horizontal' && 'flex-col gap-1 px-2 py-1 text-[11px]',
               isActive
-                ? 'bg-primary text-primary-foreground border-[var(--mc-outline)] shadow-[inset_0_3px_0_rgba(255,255,255,0.22),inset_0_-4px_0_rgba(0,0,0,0.28),3px_3px_0_0_var(--mc-outline))] hover:brightness-105'
-                : 'bg-[var(--mc-plank)] text-[#2a1c0d] border-[var(--mc-outline)] shadow-[inset_0_3px_0_var(--mc-plank-light),inset_0_-4px_0_var(--mc-plank-dark),3px_3px_0_0_var(--mc-outline))] hover:brightness-105',
+                ? 'bg-primary text-primary-foreground border-[var(--mc-outline)] shadow-[inset_0_3px_0_rgba(255,255,255,0.22),inset_0_-4px_0_rgba(0,0,0,0.28),3px_3px_0_0_var(--mc-outline)] hover:brightness-105'
+                : 'bg-[var(--mc-plank)] text-[#2a1c0d] border-[var(--mc-outline)] shadow-[inset_0_3px_0_var(--mc-plank-light),inset_0_-4px_0_var(--mc-plank-dark),3px_3px_0_0_var(--mc-outline)] hover:brightness-105',
             )
           }
         >
