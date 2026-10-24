@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Search as SearchIcon } from 'lucide-react'
-import { getMonth, getByDate, type Entry } from '@/lib/db'
+import { getAll, getMonth, getByDate, type Entry } from '@/lib/db'
 import { searchEntries } from '@/lib/search'
+import { neighborGap } from '@/lib/neighbor-gap'
 import { MonthTree } from '@/components/MonthTree'
 import { LeafPreview } from '@/components/LeafPreview'
 import { Input } from '@/components/ui/input'
@@ -12,6 +13,7 @@ export function ForestPage() {
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth() + 1)
   const [entries, setEntries] = useState<Entry[]>([])
+  const [allEntries, setAllEntries] = useState<Entry[]>([])
   const [query, setQuery] = useState('')
   const [highlighted, setHighlighted] = useState<Set<string> | null>(null)
   const [selected, setSelected] = useState<Entry | null>(null)
@@ -27,6 +29,17 @@ export function ForestPage() {
       active = false
     }
   }, [year, month])
+
+  // 加载全部日记（只用来算「距上/下篇」，跨月跨年都要能对上）
+  useEffect(() => {
+    let active = true
+    getAll().then((list) => {
+      if (active) setAllEntries(list)
+    })
+    return () => {
+      active = false
+    }
+  }, [entries])
 
   // 搜索：命中日期集合
   useEffect(() => {
@@ -59,10 +72,11 @@ export function ForestPage() {
     setMonth(m)
   }
 
-  const sorted = useMemo(
-    () => [...entries].sort((a, b) => (a.date < b.date ? -1 : 1)),
-    [entries],
+  const allSorted = useMemo(
+    () => [...allEntries].sort((a, b) => (a.date < b.date ? -1 : 1)),
+    [allEntries],
   )
+  const allDates = useMemo(() => allSorted.map((e) => e.date), [allSorted])
 
   const openLeaf = async (date: string) => {
     const e = await getByDate(date)
@@ -72,20 +86,11 @@ export function ForestPage() {
     }
   }
 
-  // 计算选中篇与上/下篇的间隔天数
-  const gapInfo = useMemo(() => {
-    if (!selected) return { prevGap: null, nextGap: null }
-    const idx = sorted.findIndex((e) => e.date === selected.date)
-    if (idx < 0) return { prevGap: null, nextGap: null }
-    const dayOf = (d: string) => parseInt(d.slice(8, 10), 10)
-    const cur = dayOf(selected.date)
-    const prev = idx > 0 ? dayOf(sorted[idx - 1].date) : null
-    const next = idx < sorted.length - 1 ? dayOf(sorted[idx + 1].date) : null
-    return {
-      prevGap: prev != null ? cur - prev - 1 : null,
-      nextGap: next != null ? next - cur - 1 : null,
-    }
-  }, [selected, sorted])
+  // 选中篇与上/下篇的真实间隔天数（必须基于「全部日记」，否则每月第一篇会显示成没有上篇）
+  const gapInfo = useMemo(
+    () => neighborGap(allDates, selected?.date ?? ''),
+    [allDates, selected],
+  )
 
   return (
     <div className="space-y-4">
@@ -128,6 +133,8 @@ export function ForestPage() {
         onOpenChange={setOpen}
         prevGap={gapInfo.prevGap}
         nextGap={gapInfo.nextGap}
+        prevDate={gapInfo.prevDate}
+        nextDate={gapInfo.nextDate}
       />
     </div>
   )

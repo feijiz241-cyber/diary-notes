@@ -4,20 +4,32 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Editor } from '@/components/Editor'
 import { Button } from '@/components/ui/button'
 import { getMood } from '@/lib/mood'
-import { formatHuman } from '@/lib/utils'
+import { formatHuman, formatShort } from '@/lib/utils'
 import type { Entry } from '@/lib/db'
 
 interface LeafPreviewProps {
   entry: Entry | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** 距上篇的间隔天数（无上一篇则为 null） */
+  /** 与上一篇的真实相差天数（无上一篇则为 null） */
   prevGap?: number | null
-  /** 距下篇的间隔天数（无下篇则为 null） */
+  /** 与下一篇的真实相差天数（无下一篇则为 null） */
   nextGap?: number | null
+  /** 上一篇的日期键，用于显示「9月10日」 */
+  prevDate?: string | null
+  /** 下一篇的日期键 */
+  nextDate?: string | null
 }
 
-export function LeafPreview({ entry, open, onOpenChange, prevGap, nextGap }: LeafPreviewProps) {
+export function LeafPreview({
+  entry,
+  open,
+  onOpenChange,
+  prevGap,
+  nextGap,
+  prevDate,
+  nextDate,
+}: LeafPreviewProps) {
   const mood = getMood(entry?.mood ?? null)
   const navigate = useNavigate()
 
@@ -47,8 +59,18 @@ export function LeafPreview({ entry, open, onOpenChange, prevGap, nextGap }: Lea
             <div className="space-y-4 p-4">
               {(prevGap != null || nextGap != null) && (
                 <div className="flex flex-wrap gap-2 border-2 border-[var(--mc-outline)] bg-[var(--mc-plank)] px-2 py-1 text-xs font-bold text-[#2a1c0d]">
-                  {prevGap != null && <span>距上篇 {prevGap} 天</span>}
-                  {nextGap != null && <span>距下篇 {nextGap} 天</span>}
+                  {prevGap != null && (
+                    <span>
+                      距上篇 {prevGap} 天
+                      {prevDate && <span className="opacity-70">（{formatShort(prevDate)}）</span>}
+                    </span>
+                  )}
+                  {nextGap != null && (
+                    <span>
+                      距下篇 {nextGap} 天
+                      {nextDate && <span className="opacity-70">（{formatShort(nextDate)}）</span>}
+                    </span>
+                  )}
                 </div>
               )}
 
