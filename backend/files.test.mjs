@@ -71,18 +71,22 @@ describe('Store files (attachments)', () => {
     expect(fs.existsSync(path.join(dir, 'files', 'a.txt'))).toBe(false)
   })
 
-  it('deleting a diary entry removes its attachments', async () => {
+  it('deleting a diary entry keeps its attachments (R3: 附件不再跟随日记删除)', async () => {
     const { s, dir } = await makeStore()
     const e = await s.upsertByDate({ date: '2026-09-17', title: 't', content: {}, mood: null, tags: [] })
     await s.putFile('f1', { entryId: '2026-09-17', ext: 'txt', name: 'f1.txt', base64: b64('1') })
     await s.putFile('f2', { entryId: '2026-09-18', ext: 'txt', name: 'f2.txt', base64: b64('2') })
 
     await s.deleteById(e.id)
+
+    // 日记没了
+    expect(await s.readAll()).toHaveLength(0)
+    // 但附件都还在：素材池按日期归属、与笔记共享，连带删除会误删别处还在引用的文件
+    expect(await s.getFile('f1')).not.toBeNull()
+    expect(await s.getFile('f2')).not.toBeNull()
+    expect(fs.existsSync(path.join(dir, 'files', 'f1.txt'))).toBe(true)
     const kept = await s.listFiles('2026-09-18')
     expect(kept).toHaveLength(1)
-    expect(await s.getFile('f1')).toBeNull()
-    expect(await s.getFile('f2')).not.toBeNull()
-    expect(fs.existsSync(path.join(dir, 'files', 'f1.txt'))).toBe(false)
   })
 
   it('clearAllData 清空日记、笔记与全部素材', async () => {

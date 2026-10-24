@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="一个安静、私密的本地日记网页" />
     <title>日记 · Diary</title>
+    <!--
+      主题预置：必须在 CSS 之前同步执行，否则首屏会先闪一下浅色再切到深色（FOUC）。
+      规则与 ThemeProvider.tsx 完全一致：优先读 localStorage 的 diary-theme，
+      没有就跟随系统 prefers-color-scheme。两边任何一处改动都要同步另一处。
+    -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('diary-theme')
+          var dark =
+            saved === 'dark' ||
+            (saved !== 'light' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) document.documentElement.classList.add('dark')
+        } catch (e) {
+          /* localStorage 被禁用时静默降级为浅色，不影响页面加载 */
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

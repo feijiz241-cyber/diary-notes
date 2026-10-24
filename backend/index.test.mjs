@@ -77,15 +77,36 @@ describe('HTTP API (index.mjs)', () => {
     expect(buf.toString()).toBe(original)
   })
 
-  it('DELETE /api/entries/:id removes entry and images', async () => {
+  it('DELETE /api/entries/:id 只删日记条目，同日图片与附件仍保留（R3）', async () => {
     const e = await store.upsertByDate({ date: '2026-07-13', title: 'bye', content: {}, mood: null, tags: [] })
     await store.putImage('imgB', { entryId: '2026-07-13', ext: 'png', base64: Buffer.from('x').toString('base64') })
+    await store.putFile('fileB', {
+      entryId: '2026-07-13',
+      ext: 'txt',
+      name: '同日附件.txt',
+      base64: Buffer.from('keep').toString('base64'),
+    })
+
     const del = await fetch(`${BASE}/api/entries/${e.id}`, { method: 'DELETE' })
     expect(del.status).toBe(200)
+
+    // 日记条目没了
     const get = await fetch(`${BASE}/api/entries/2026-07-13`)
     expect(get.status).toBe(404)
+
+    // 但同日素材还在：素材池与笔记共享，连带删除会把笔记引用的文件删掉
     const imgGet = await fetch(`${BASE}/api/images/imgB`)
-    expect(imgGet.status).toBe(404)
+    expect(imgGet.status).toBe(200)
+    expect(Buffer.from(await imgGet.arrayBuffer()).toString()).toBe('x')
+
+    const fileGet = await fetch(`${BASE}/api/files/fileB`)
+    expect(fileGet.status).toBe(200)
+    expect(Buffer.from(await fileGet.arrayBuffer()).toString()).toBe('keep')
+
+    const imgList = await (await fetch(`${BASE}/api/images?entryId=2026-07-13`)).json()
+    expect(imgList.map((i) => i.id)).toContain('imgB')
+    const fileList = await (await fetch(`${BASE}/api/files?entryId=2026-07-13`)).json()
+    expect(fileList.map((f) => f.id)).toContain('fileB')
   })
 
   it('notes: PUT creates multiple, GET ?date filters, DELETE removes', async () => {
@@ -169,11 +190,15 @@ describe('HTTP API (index.mjs)', () => {
     expect(allImages.every((i) => typeof i.id === 'string')).toBe(true)
   })
 
-  it('export includes notes and files manifest', async () => {
+  it('export includes notes, files manifest and images', async () => {
     const exp = await (await fetch(`${BASE}/api/export`)).json()
     expect(Array.isArray(exp.notes)).toBe(true)
     expect(exp.notes.length).toBeGreaterThan(0)
     expect(exp.files).toBeDefined()
+    // 图片元数据也要在导出里，否则换机/还原后图片清单丢失
+    expect(Array.isArray(exp.images)).toBe(true)
+    expect(exp.images.some((i) => i.id === 'imgA')).toBe(true)
+    expect(typeof exp.images[0].entryId).toBe('string')
   })
 
   it('export and import roundtrip', async () => {
@@ -212,5 +237,102 @@ describe('HTTP API (index.mjs)', () => {
     await fetch(`${BASE}/api/data`, { method: 'DELETE' })
     expect(await (await fetch(`${BASE}/api/entries`)).json()).toHaveLength(0)
     expect(await (await fetch(`${BASE}/api/notes`)).json()).toHaveLength(0)
+  })
+})
+
+describe('请求体上限与 JSON 校验 (R6)', () => {
+  let s2
+  let b2
+  let dir2
+
+  beforeAll(async () => {
+    dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'diary-http-body-'))
+    const st = new Store(dir2)
+    await st.init()
+    // 传一个小上限（1KB）来测 413，避免真的发 32MB：语义相同，速度快几个数量级
+    s2 = createServer(st, 0, '127.0.0.1', 1024)
+    if (!s2.listening) await once(s2, 'listening')
+    b2 = `http://127.0.0.1:${s2.address().port}`
+  })
+
+  afterAll(async () => {
+    await new Promise((r) => s2.close(r))
+  })
+
+  it('超过上限返回 413 且不落盘', async () => {
+    const big = 'x'.repeat(4096) // 远超 1024 上限
+    const res = await fetch(`${b2}/api/notes`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: '2026-10-01', title: big, content: {} }),
+    })
+    expect(res.status).toBe(413)
+    expect(await res.json()).toEqual({ error: 'payload too large' })
+    // 请求体没读完的连接必须显式关闭：残留字节会被当成下一个请求，导致 HTTP 协议错位
+    expect(res.headers.get('connection')).toBe('close')
+
+    // 没写进去：条目列表仍然是空的
+    expect(await (await fetch(`${b2}/api/notes`)).json()).toHaveLength(0)
+  })
+
+  it('413 之后连接不可复用，但服务仍然健康（后续请求照常成功）', async () => {
+    // 用 keep-alive agent 发一个超限请求，再复用连接池发正常请求：不能卡死/串包
+    const http = await import('node:http')
+    const agent = new http.Agent({ keepAlive: true, maxSockets: 1 })
+    const post = (body, path = '/api/notes') =>
+      new Promise((resolve, reject) => {
+        const u = new URL(path, b2)
+        const r = http.request(
+          { hostname: u.hostname, port: u.port, path: u.pathname, method: 'PUT', agent, headers: { 'Content-Type': 'application/json' } },
+          (res) => {
+            res.resume()
+            res.on('end', () => resolve(res.statusCode))
+          },
+        )
+        r.on('error', reject)
+        r.end(body)
+      })
+
+    expect(await post(JSON.stringify({ date: '2026-10-09', title: 'z'.repeat(4096), content: {} }))).toBe(413)
+    // 超限请求后，同一 agent 上的下一个请求必须还能拿到正常响应
+    const okBody = JSON.stringify({ date: '2026-10-10', title: 'fine', content: {} })
+    expect(await post(okBody)).toBe(200)
+    agent.destroy()
+  })
+
+  it('恰好等于上限的请求正常通过（边界不误杀）', async () => {
+    // 精确构造一条长度 == 1024 的合法 JSON：超限判断用 size > max，等于必须放行
+    const shell = JSON.stringify({ date: '2026-10-02', title: '', content: {} })
+    const body = shell.replace('""', `"${'y'.repeat(1024 - shell.length)}"`)
+    expect(Buffer.byteLength(body)).toBe(1024)
+
+    const res = await fetch(`${b2}/api/notes`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    })
+    expect(res.status).toBe(200)
+    const list = await (await fetch(`${b2}/api/notes`)).json()
+    expect(list.some((n) => n.date === '2026-10-02')).toBe(true)
+  })
+
+  it('非法 JSON 返回 400 invalid json，而不是静默当成 {} 存空数据', async () => {
+    const res = await fetch(`${b2}/api/notes`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"date": "2026-10-03", broken',
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'invalid json' })
+  })
+
+  it('空请求体仍按 {} 兼容（不带 body 的 DELETE 不受影响）', async () => {
+    const res = await fetch(`${b2}/api/files`, { method: 'DELETE' })
+    expect(res.status).toBe(200)
+  })
+
+  it('生产默认上限是 32MB（可导出、可读，不是魔法数字埋在代码里）', async () => {
+    const { MAX_BODY_BYTES } = await import('./index.mjs')
+    expect(MAX_BODY_BYTES).toBe(32 * 1024 * 1024)
   })
 })

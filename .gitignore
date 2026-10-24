@@ -4,3 +4,5 @@ frontend/dist/
 .codebuddy/
 *.local
 data/
+# 动数据前的本地备份（可能含日记正文，绝不入库）
+.backup/

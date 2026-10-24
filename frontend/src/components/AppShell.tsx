@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BookOpen, CalendarDays, Search, Settings, Sun, Moon, Home, TreePine, NotebookPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from './ThemeProvider'
@@ -12,6 +12,13 @@ const navItems = [
   { to: '/search', label: '搜索', icon: Search, end: false },
   { to: '/settings', label: '设置', icon: Settings, end: false },
 ]
+
+/**
+ * 需要更宽版心的路由。
+ * 日记正文、笔记、搜索、设置这些「读文字」的页面保持 768px 更好读；
+ * 年历（12 宫格）和森林（那棵像素大树）内容本身是横向的，窄了会挤，所以放宽。
+ */
+const WIDE_ROUTES = ['/calendar', '/forest']
 
 function NavItems({ orientation }: { orientation: 'vertical' | 'horizontal' }) {
   return (
@@ -41,6 +48,9 @@ function NavItems({ orientation }: { orientation: 'vertical' | 'horizontal' }) {
 
 export function AppShell() {
   const { theme, toggle } = useTheme()
+  const { pathname } = useLocation()
+  // 宽页面只在 xl（>=1280px）以上放开，否则侧栏 + 窄屏会显得又空又散
+  const isWide = WIDE_ROUTES.some((p) => pathname === p || pathname.startsWith(p + '/'))
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -68,7 +78,12 @@ export function AppShell() {
           </Button>
         </header>
 
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 md:px-8 md:py-10">
+        <main
+          className={cn(
+            'mx-auto w-full flex-1 px-4 py-6 md:px-8 md:py-10',
+            isWide ? 'max-w-3xl xl:max-w-6xl' : 'max-w-3xl',
+          )}
+        >
           <Outlet />
         </main>
 
