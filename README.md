@@ -7,7 +7,7 @@
 - ✍️ 富文本日记：加粗 / 斜体 / 标题 / 列表 / 引用 / 行内代码，一天一篇，可记心情与标签
 - 📓 笔记：一天可写多篇，与日记互不影响，带年历查找
 - 🖼️ 图片与 📎 附件：支持上传任意类型文件，正文内渲染可下载的附件卡片
-- 🌲 森林：把当月日记长成一棵像素树，叶子可预览、搜索可高亮命中
+- 🌲 森林：把当月日记长成一棵月夜下的像素老松，每篇日记是一片发光的叶子，可预览、搜索可高亮命中
 - 📅 日历：全年 12 个月视图，有日记的日期显示心情
 - 🔍 全文搜索：标题 + 正文，覆盖日记与笔记
 - 📦 导出 JSON / Markdown 备份，导入即还原；可从浏览器旧版一键迁移
@@ -59,7 +59,7 @@ frontend/               前端（Vite + React）
     components/         UI 组件（Editor / DayEditor / ImageNode / FileNode /
                         MonthTree / LeafPreview / MoodPicker / TagInput / AppShell ...）
     lib/                数据层与工具（db / search / export / cleanup / mood / tags /
-                        migrate / editor-serialize / tree-layout / utils）
+                        migrate / editor-serialize / tree-layout / tree-pixels / utils）
     pages/              页面（Today / DayEditor / Notes / Forest / Calendar /
                         Search / Settings / NotFound）
     test/               测试基建（内存后端 mockApi）
