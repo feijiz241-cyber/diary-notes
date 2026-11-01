@@ -1,0 +1,24 @@
+# 行尾统一，避免换行符被 git 改写后把批处理弄坏
+# 背景：cmd 的 goto 在纯 LF 的 .bat 上会「找不到标签」（实测过一次），所以 .bat 必须保持 CRLF。
+* text=auto
+
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+*.sh   text eol=lf
+*.mjs  text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.css  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+
+# 二进制：别做任何换行/编码转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.gif  binary
+*.ico  binary
+*.woff binary
+*.woff2 binary

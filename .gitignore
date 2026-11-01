@@ -2,7 +2,15 @@ node_modules/
 dist/
 frontend/dist/
 .codebuddy/
+.workbuddy/
 *.local
 data/
 # 动数据前的本地备份（可能含日记正文，绝不入库）
 .backup/
+
+# 编辑器 / 系统留下的杂物
+*.log
+*.tmp
+Thumbs.db
+desktop.ini
+.DS_Store

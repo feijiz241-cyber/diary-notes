@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search as SearchIcon } from 'lucide-react'
 import { searchAll, type SearchResult } from '@/lib/search'
+import { describeError } from '@/lib/api-error'
+import { useDebouncedValue } from '@/lib/use-debounced'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatHuman } from '@/lib/utils'
@@ -9,20 +11,43 @@ import { formatHuman } from '@/lib/utils'
 export function SearchPage() {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
+  const debouncedQ = useDebouncedValue(q, 250)
   const [results, setResults] = useState<SearchResult[]>([])
   const [searched, setSearched] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  // 请求序号：先发的请求可能后回来，只认最后一次
+  const seq = useRef(0)
 
-  const run = async (val: string) => {
-    setQ(val)
+  useEffect(() => {
+    const val = debouncedQ
+    const mine = ++seq.current
+    setError(null)
+
     if (!val.trim()) {
       setResults([])
       setSearched(false)
+      setPending(false)
       return
     }
-    const r = await searchAll(val)
-    setResults(r)
-    setSearched(true)
-  }
+
+    setPending(true)
+    searchAll(val)
+      .then((r) => {
+        if (seq.current !== mine) return
+        setResults(r)
+        setSearched(true)
+      })
+      .catch((err) => {
+        if (seq.current !== mine) return
+        setError(describeError(err))
+        setResults([])
+        setSearched(false)
+      })
+      .finally(() => {
+        if (seq.current === mine) setPending(false)
+      })
+  }, [debouncedQ])
 
   const open = (r: SearchResult) =>
     navigate(r.kind === 'note' ? `/notes?date=${r.date}` : `/day/${r.date}`)
@@ -34,13 +59,21 @@ export function SearchPage() {
         <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={q}
-          onChange={(e) => run(e.target.value)}
+          onChange={(e) => setQ(e.target.value)}
           placeholder="搜索日记与笔记的标题或正文…"
           className="pl-9"
         />
       </div>
 
-      {searched && results.length === 0 && (
+      {error && (
+        <p role="alert" className="border-2 border-[var(--mc-outline)] bg-card p-3 text-sm">
+          {error}
+        </p>
+      )}
+
+      {pending && <p className="text-xs text-muted-foreground">正在翻日记…</p>}
+
+      {!pending && searched && results.length === 0 && (
         <p className="text-muted-foreground">没有找到匹配的内容。</p>
       )}
 

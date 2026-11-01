@@ -65,3 +65,24 @@ describe('DayEditor 自动保存', () => {
     expect(await getByDate('2026-09-19')).toBeUndefined()
   })
 })
+
+describe('DayEditor 加载失败', () => {
+  it('连不上后端时给出提示和重试按钮，而不是一直停在「加载中…」', async () => {
+    // 用户最常见的故障：双击了 bat，但后端那个黑窗口没起来
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
+    )
+
+    try {
+      render(<DayEditor dateKey="2026-09-18" />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('内容没有加载出来')
+      expect(screen.getByText(/没连上本地服务/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument()
+      expect(screen.queryByText('加载中…')).not.toBeInTheDocument()
+    } finally {
+      vi.stubGlobal('fetch', mock.fetch)
+    }
+  })
+})

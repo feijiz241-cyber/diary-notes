@@ -35,7 +35,7 @@ export function ImageUpload({ editor, dateKey, className }: ImageUploadProps) {
         type="button"
         onClick={() => inputRef.current?.click()}
         className={cn('rounded-none border-2 border-transparent p-2 transition-colors hover:bg-accent', className)}
-        title="插入图片"
+        title="插入图片（也可以直接把图片粘贴或拖进正文）"
         aria-label="插入图片"
       >
         <ImageIcon className="size-4" />

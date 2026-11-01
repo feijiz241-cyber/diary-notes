@@ -111,28 +111,144 @@ export function entriesToMarkdown(entries: Entry[]): string {
   return sorted.map(entryToMarkdown).join('\n---\n\n')
 }
 
-/** 导入导出包：清空后还原全部日记、笔记与图片（即"还原备份"）。 */
-export async function importBundle(bundle: ExportBundle): Promise<void> {
-  if (!bundle || !Array.isArray(bundle.entries)) throw new Error('无效的备份文件')
-  await clearAll()
-  for (const e of bundle.entries) {
+/** 导入前的目标形态：整份备份已在内存里校验、解码完毕，还没碰磁盘。 */
+interface PreparedImport {
+  entries: Array<Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>>
+  notes: Array<{ id: string; date: string; title: string; content: unknown }>
+  images: Array<{ id: string; entryId: string; blob: Blob }>
+  files: Array<{ id: string; entryId: string; name: string; blob: Blob }>
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] }
+
+function fail(message: string): never {
+  throw new Error(message)
+}
+
+function readDate(value: unknown, where: string): string {
+  if (typeof value !== 'string' || !DATE_RE.test(value)) {
+    fail(`${where}的日期不是 YYYY-MM-DD（读到的值：${JSON.stringify(value)}）`)
+  }
+  return value
+}
+
+function readId(value: unknown, where: string): string {
+  if (typeof value !== 'string' || value === '') fail(`${where}缺少 id`)
+  return value
+}
+
+function decodeDataUrl(value: unknown, where: string): Blob {
+  if (typeof value !== 'string' || !value.startsWith('data:') || !value.includes(',')) {
+    fail(`${where}的内容不是完整的 dataURL（备份文件可能被手动改过或截断了）`)
+  }
+  try {
+    return dataUrlToBlob(value)
+  } catch {
+    fail(`${where}的内容解不出来（base64 已损坏）`)
+  }
+}
+
+/**
+ * 只做校验与解码，不访问网络、不改本地数据。
+ *
+ * 存在的理由：以前 importBundle 是「先把本地全清空，再逐条写」，
+ * 于是只要备份文件本身有问题（手改坏了、复制截断了、版本对不上），
+ * 用户就会得到「原有数据没了 + 新的也没进来」——这份损失无法撤销。
+ * 现在坏文件在动磁盘之前就会被拦下来，原数据保持原样。
+ */
+export function prepareImport(bundle: ExportBundle): PreparedImport {
+  if (!bundle || typeof bundle !== 'object' || !Array.isArray(bundle.entries)) {
+    fail('这不是本应用导出的备份文件（缺少 entries 列表）')
+  }
+  if (bundle.version !== undefined && bundle.version !== 1) {
+    fail(`备份文件的版本是 ${String(bundle.version)}，这个版本的应用读不了`)
+  }
+
+  const entries: PreparedImport['entries'] = []
+  bundle.entries.forEach((e, i) => {
+    const where = `第 ${i + 1} 篇日记`
+    if (!e || typeof e !== 'object') fail(`备份文件${where}格式不对`)
     const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = e
-    await putEntry(rest)
+    entries.push({
+      date: readDate(rest.date, where),
+      title: typeof rest.title === 'string' ? rest.title : '',
+      content: rest.content ?? EMPTY_DOC,
+      mood: rest.mood ?? null,
+      tags: Array.isArray(rest.tags) ? rest.tags : [],
+    })
+  })
+
+  const notes: PreparedImport['notes'] = []
+  if (bundle.notes !== undefined) {
+    if (!Array.isArray(bundle.notes)) fail('备份文件里的 notes 不是列表')
+    bundle.notes.forEach((n, i) => {
+      const where = `第 ${i + 1} 篇笔记`
+      if (!n || typeof n !== 'object') fail(`备份文件${where}格式不对`)
+      notes.push({
+        id: readId(n.id, where),
+        date: readDate(n.date, where),
+        title: typeof n.title === 'string' ? n.title : '',
+        content: n.content ?? EMPTY_DOC,
+      })
+    })
   }
-  // 笔记：先清空再按原 id 还原（保留身份，天数内多篇关系不变）
-  if (Array.isArray(bundle.notes)) {
-    await clearAllNotes()
-    for (const n of bundle.notes) {
-      await putNote({ id: n.id, date: n.date, title: n.title, content: n.content })
-    }
+
+  const images: PreparedImport['images'] = []
+  if (bundle.images !== undefined) {
+    if (!Array.isArray(bundle.images)) fail('备份文件里的 images 不是列表')
+    bundle.images.forEach((img, i) => {
+      const where = `第 ${i + 1} 张图片`
+      if (!img || typeof img !== 'object') fail(`备份文件${where}格式不对`)
+      images.push({
+        id: readId(img.id, where),
+        entryId: readDate(img.entryId, where + '所属日期'),
+        blob: decodeDataUrl(img.dataUrl, where),
+      })
+    })
   }
-  for (const img of bundle.images ?? []) {
-    // 传入原 id，保证日记内容里引用的 imageId 在还原后依然有效
-    await putImage(img.entryId, dataUrlToBlob(img.dataUrl), img.id)
+
+  const files: PreparedImport['files'] = []
+  if (bundle.files !== undefined) {
+    if (!Array.isArray(bundle.files)) fail('备份文件里的 files 不是列表')
+    bundle.files.forEach((f, i) => {
+      const where = `第 ${i + 1} 个附件`
+      if (!f || typeof f !== 'object') fail(`备份文件${where}格式不对`)
+      files.push({
+        id: readId(f.id, where),
+        entryId: readDate(f.entryId, where + '所属日期'),
+        name: typeof f.name === 'string' && f.name ? f.name : 'attachment',
+        blob: decodeDataUrl(f.dataUrl, where),
+      })
+    })
   }
-  // 附件：先清空再按原 id / 原文件名还原
+
+  return { entries, notes, images, files }
+}
+
+/**
+ * 导入导出包：清空后还原全部日记、笔记、图片与附件（即"还原备份"）。
+ *
+ * 分两步：先 prepareImport 全量校验（不动磁盘），再清空、逐条写入。
+ */
+export async function importBundle(bundle: ExportBundle): Promise<void> {
+  const prepared = prepareImport(bundle)
+
+  await clearAll()
+  await clearAllNotes()
   await clearAllFiles()
-  for (const f of bundle.files ?? []) {
-    await putFile(f.entryId, dataUrlToBlob(f.dataUrl), f.id, f.name)
+
+  try {
+    for (const e of prepared.entries) await putEntry(e)
+    for (const n of prepared.notes) await putNote(n)
+    // 传入原 id，保证日记内容里引用的 imageId 在还原后依然有效
+    for (const img of prepared.images) await putImage(img.entryId, img.blob, img.id)
+    for (const f of prepared.files) await putFile(f.entryId, f.blob, f.id, f.name)
+  } catch (err) {
+    // 到这一步本地已经清空过了，必须如实告诉用户，别让它读起来像"什么都没发生"
+    const detail = err instanceof Error ? err.message : String(err)
+    throw new Error(
+      `导入到一半失败了，原有数据已经被清空。请再选一次同一份备份文件重试。（${detail}）`,
+    )
   }
 }

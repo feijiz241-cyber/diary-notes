@@ -1,4 +1,6 @@
 import http from 'node:http'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Store } from './store.mjs'
 
@@ -21,6 +23,45 @@ function resolveMaxBodyBytes() {
   return Number.isFinite(n) && n > 0 ? n : MAX_BODY_BYTES
 }
 
+/** 静态站点的默认目录：frontend/dist（与本文件同级的上一级）。 */
+export const DEFAULT_DIST_DIR = fileURLToPath(new URL('../frontend/dist/', import.meta.url))
+
+/**
+ * 生产模式的静态目录。`DIARY_DIST_DIR=off` 可关闭（只跑 API 时用）。
+ * 目录不存在不报错 —— 只是这条路径交给 404，开发模式（vite dev）照旧可用。
+ */
+function resolveDistDir() {
+  const v = process.env.DIARY_DIST_DIR
+  if (v === 'off' || v === '0') return null
+  return v ? path.resolve(v) : DEFAULT_DIST_DIR
+}
+
+/** 静态文件类型。只覆盖 dist 里真会出现的那几种；其余按二进制流发。 */
+const STATIC_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.ico': 'image/x-icon',
+  '.txt': 'text/plain; charset=utf-8',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+}
+
+/** vite 给资源文件名带了内容哈希，可以永久缓存；index.html 必须每次问一遍。 */
+const ASSET_CACHE = 'public, max-age=31536000, immutable'
+const INDEX_CACHE = 'no-cache'
+// 日记日期形如 2026-11-01；只有这种路径才走「可能为空」的 200 分支
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
 /** 带 HTTP 语义的错误：由顶层 catch 统一转成对应状态码，而不是一律 500。 */
 class HttpError extends Error {
   constructor(status, message) {
@@ -34,7 +75,16 @@ class HttpError extends Error {
  * 返回已 listen 的 http.Server。
  * @param {number} maxBodyBytes 请求体上限，默认取 MAX_BODY_BYTES（测试可传小值，不必真发 33MB）
  */
-export function createServer(store, port = PORT, host = HOST, maxBodyBytes = resolveMaxBodyBytes()) {
+export function createServer(
+  store,
+  port = PORT,
+  host = HOST,
+  maxBodyBytes = resolveMaxBodyBytes(),
+  /** @type {{ distDir?: string | null }} 测试可传 distDir 指向临时目录，或 null 关闭静态托管 */
+  options = {},
+) {
+  const distRoot =
+    options.distDir === undefined ? resolveDistDir() : options.distDir ? path.resolve(options.distDir) : null
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
     const { pathname, searchParams } = url
@@ -47,6 +97,78 @@ export function createServer(store, port = PORT, host = HOST, maxBodyBytes = res
     const sendFile = (buffer, type) => {
       res.writeHead(200, { 'Content-Type': type })
       res.end(buffer)
+    }
+
+    /** 发 index.html（单页应用的入口；直接访问 /forest 这类前端路由也要能落到它）。 */
+    const sendIndex = async (headOnly) => {
+      if (!distRoot) return false
+      let buf
+      try {
+        buf = await fs.readFile(path.join(distRoot, 'index.html'))
+      } catch {
+        return false // 没 build 过：交给 404，控制台已经提示过
+      }
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Length': buf.length,
+        'Cache-Control': INDEX_CACHE,
+      })
+      res.end(headOnly ? undefined : buf)
+      return true
+    }
+
+    /**
+     * 生产模式：把 frontend/dist 当静态站点发出去。
+     * 命中返回 true；未命中（含目录穿越、非法编码）返回 false，由调用方回 404。
+     */
+    const serveStatic = async (requestPath, headOnly) => {
+      if (!distRoot) return false
+
+      let decoded
+      try {
+        decoded = decodeURIComponent(requestPath)
+      } catch {
+        return false // 非法百分号编码
+      }
+
+      const rel = decoded.replace(/^\/+/, '')
+      const target = path.resolve(distRoot, rel || 'index.html')
+      // 目录穿越防护：解析后必须仍在 dist 之内（..%2f 之类都在这里被拦下）
+      if (target !== distRoot && !target.startsWith(distRoot.endsWith(path.sep) ? distRoot : distRoot + path.sep)) {
+        return false
+      }
+
+      const asFile = target === distRoot ? path.join(distRoot, 'index.html') : target
+      let stat = null
+      try {
+        stat = await fs.stat(asFile)
+      } catch {
+        stat = null
+      }
+
+      if (!stat || !stat.isFile()) {
+        // 要的是一个具体文件（带扩展名）却没找到：真 404。
+        // 绝不能回 index.html —— 浏览器会拿 HTML 当 JS 解析，报一堆莫名其妙的语法错误。
+        if (path.extname(asFile)) return false
+        // 其余情况是前端路由（/forest、/day/2026-09-18），落到 index.html
+        return sendIndex(headOnly)
+      }
+
+      const ext = path.extname(asFile).toLowerCase()
+      const headers = {
+        'Content-Type': STATIC_TYPES[ext] || 'application/octet-stream',
+        'Content-Length': stat.size,
+        'Cache-Control': rel.startsWith('assets/') ? ASSET_CACHE : INDEX_CACHE,
+      }
+      if (headOnly) {
+        res.writeHead(200, headers)
+        res.end()
+        return true
+      }
+      const buf = await fs.readFile(asFile)
+      res.writeHead(200, headers)
+      res.end(buf)
+      return true
     }
     /**
      * 读取并解析请求体。
@@ -124,6 +246,15 @@ export function createServer(store, port = PORT, host = HOST, maxBodyBytes = res
         return
       }
 
+      // 只回日期清单：森林页算「距上/下篇」只需要日期，不该为此下载所有日记正文。
+      // 必须放在 /api/entries/:date 之前，否则会被当成一篇日期叫 dates 的日记。
+      if (pathname === '/api/entries/dates' && method === 'GET') {
+        const all = await store.readAll()
+        const dates = all.map((e) => e.date).sort()
+        sendJSON(200, dates)
+        return
+      }
+
       const entryIdMatch = pathname.match(/^\/api\/entries\/id\/([^/]+)$/)
       if (entryIdMatch && method === 'GET') {
         const id = decodeURIComponent(entryIdMatch[1])
@@ -137,9 +268,15 @@ export function createServer(store, port = PORT, host = HOST, maxBodyBytes = res
       const entryDateMatch = pathname.match(/^\/api\/entries\/([^/]+)$/)
       if (entryDateMatch && method === 'GET') {
         const date = decodeURIComponent(entryDateMatch[1])
+        // 日期不存在 = 这一天还没写，不是错误：回 200 + null，
+        // 免得浏览器控制台把首屏那一次探路请求标成红色 404。
+        // 但不像日期的路径仍然 404，免得把拼错的 URL 也当成「空日记」。
+        if (!DATE_RE.test(date)) {
+          sendJSON(404, { error: 'not found' })
+          return
+        }
         const e = await store.getByDate(date)
-        if (e) sendJSON(200, e)
-        else sendJSON(404, { error: 'not found' })
+        sendJSON(200, e ?? null)
         return
       }
 
@@ -317,6 +454,13 @@ export function createServer(store, port = PORT, host = HOST, maxBodyBytes = res
         return
       }
 
+      // ---------- 静态页面（生产模式：后端直接托管 frontend/dist） ----------
+      // 只接管非 /api 的 GET/HEAD；/api 下不存在的路径仍然回 JSON 404，
+      // 否则前端拿到一坨 HTML 去 JSON.parse，报错会很难查。
+      if ((method === 'GET' || method === 'HEAD') && !pathname.startsWith('/api/')) {
+        if (await serveStatic(pathname, method === 'HEAD')) return
+      }
+
       sendJSON(404, { error: 'not found' })
     } catch (err) {
       // 请求体超限/非法 JSON 这类错误自带 HTTP 语义，按原状态码回；其余仍按 500。
@@ -335,6 +479,17 @@ export function createServer(store, port = PORT, host = HOST, maxBodyBytes = res
 
   server.listen(port, host, () => {
     console.log(`[diary-server] listening on http://${host}:${port}`)
+    if (!distRoot) {
+      console.log('[diary-server] 未启用静态页面（DIARY_DIST_DIR=off）：只提供 /api')
+      return
+    }
+    fs.access(path.join(distRoot, 'index.html')).then(
+      () => console.log(`[diary-server] 静态页面：${distRoot}`),
+      () =>
+        console.log(
+          `[diary-server] 没找到 ${path.join(distRoot, 'index.html')}：只提供 /api（先用 npm run build 或直接跑 vite dev）`,
+        ),
+    )
   })
   return server
 }

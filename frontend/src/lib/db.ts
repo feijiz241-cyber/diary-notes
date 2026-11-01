@@ -65,8 +65,10 @@ export async function putEntry(
 
 export async function getByDate(date: string): Promise<Entry | undefined> {
   const res = await fetch(`${BASE}/entries/${encodeURIComponent(date)}`)
+  // 这一天还没写：后端回 200 + null（旧后端回 404），两种都当空日记
   if (res.status === 404) return undefined
-  return (await parseJSON(res)) as Entry
+  const body = (await parseJSON(res)) as Entry | null
+  return body ?? undefined
 }
 
 /** 取某年某月（1-12）的全部日记。 */
@@ -87,6 +89,15 @@ export async function getAll(): Promise<Entry[]> {
   return (await parseJSON(res)) as Entry[]
 }
 
+/**
+ * 只要所有日记的日期（升序）。
+ * 森林页的「距上/下篇」只需要日期，用它就不用把每篇正文都下载一遍。
+ */
+export async function getEntryDates(): Promise<string[]> {
+  const res = await fetch(`${BASE}/entries/dates`)
+  return (await parseJSON(res)) as string[]
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   const res = await fetch(`${BASE}/entries/${encodeURIComponent(id)}`, { method: 'DELETE' })
   await parseJSON(res)
@@ -103,20 +114,71 @@ export async function putImage(entryId: string, blob: Blob, id?: string): Promis
     body: JSON.stringify({ imageId, entryId, ext: extFromType(blob.type), base64 }),
   })
   await parseJSON(res)
+  // 刚上传的字节还在手上，直接进缓存：插入后立刻渲染，不必再下载一遍
+  cacheImageBlob(imageId, blob)
   return imageId
 }
 
+/**
+ * 图片字节的内存缓存（id → Blob）。
+ *
+ * 为什么要有：编辑器里每个图片节点以前都会「查当天图片清单 + 把当天所有图片全下载一遍」，
+ * N 张图就是 N×(1+N) 个请求、N² 次全尺寸下载。现在每个节点只按 id 取自己那一张，
+ * 并在这里缓存字节：同一天来回切换、或同一张图出现在两处，都不会再走网络。
+ *
+ * 只缓存字节、不缓存 blob URL —— URL 由调用方在卸载时 revoke，避免悬挂引用。
+ * 上限 32 张，超出按插入顺序淘汰最旧的（图片本身还在磁盘上，淘汰只意味着下次重读）。
+ */
+const imageBlobCache = new Map<string, Blob>()
+const IMAGE_CACHE_MAX = 32
+
+function cacheImageBlob(id: string, blob: Blob): void {
+  imageBlobCache.delete(id)
+  imageBlobCache.set(id, blob)
+  while (imageBlobCache.size > IMAGE_CACHE_MAX) {
+    const oldest = imageBlobCache.keys().next().value
+    if (oldest === undefined) break
+    imageBlobCache.delete(oldest)
+  }
+}
+
+/**
+ * 按 id 取单张图片（命中缓存不发请求）；服务端没有这张图时返回 null。
+ * 对应后端 GET /api/images/:id。
+ */
+export async function getImage(id: string): Promise<{ blob: Blob; type: string } | null> {
+  const cached = imageBlobCache.get(id)
+  if (cached) return { blob: cached, type: cached.type || 'application/octet-stream' }
+
+  const res = await fetch(`${BASE}/images/${encodeURIComponent(id)}`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`API ${res.status} ${res.url}`)
+
+  // 后端回的就是原始字节 + Content-Type；测试里的 mock Response 没有 headers，按通用类型兜底
+  const headerType = res.headers?.get?.('Content-Type') || ''
+  const blob = new Blob([await res.arrayBuffer()], {
+    type: headerType || 'application/octet-stream',
+  })
+  cacheImageBlob(id, blob)
+  return { blob, type: blob.type }
+}
+
+/**
+ * 取某一天（entryId）的全部图片字节。
+ * 只给「需要整天素材」的场合用（导出备份、清理未引用素材）；
+ * 编辑器渲染单张图请走 getImage，别再每个节点拉一次整天。
+ */
 export async function getImagesByEntry(entryId: string): Promise<ImageRecord[]> {
   const res = await fetch(`${BASE}/images?entryId=${encodeURIComponent(entryId)}`)
-  const list = (await parseJSON(res)) as Array<{ id: string; entryId: string; ext: string; type: string }>
-  return Promise.all(
+  const list = (await parseJSON(res)) as ImageMeta[]
+  const records = await Promise.all(
     list.map(async (m) => {
-      const imgRes = await fetch(`${BASE}/images/${m.id}`)
-      const buf = await imgRes.arrayBuffer()
-      const blob = new Blob([buf], { type: m.type })
-      return { id: m.id, entryId: m.entryId, blob, createdAt: 0 }
+      const got = await getImage(m.id)
+      if (!got) return null
+      return { id: m.id, entryId: m.entryId, blob: got.blob, createdAt: 0 }
     }),
   )
+  return records.filter((r): r is ImageRecord => r !== null)
 }
 
 /** 只清空日记条目（不影响笔记与图片/附件）。 */
@@ -129,6 +191,7 @@ export async function clearEntries(): Promise<void> {
 export async function clearAll(): Promise<void> {
   const res = await fetch(`${BASE}/data`, { method: 'DELETE' })
   await parseJSON(res)
+  imageBlobCache.clear()
 }
 
 /** 图片元数据（不含内容），供「清理未引用素材」使用。 */
@@ -148,6 +211,7 @@ export async function listAllImages(): Promise<ImageMeta[]> {
 export async function deleteImage(id: string): Promise<void> {
   const res = await fetch(`${BASE}/images/${encodeURIComponent(id)}`, { method: 'DELETE' })
   await parseJSON(res)
+  imageBlobCache.delete(id)
 }
 
 /** ---------- 笔记（一天可多篇，独立于日记） ---------- */

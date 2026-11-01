@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { getByDate, putEntry, type Entry } from '@/lib/db'
+import { describeError } from '@/lib/api-error'
 import { Editor } from './Editor'
+import { LoadError } from './LoadError'
 import { MoodPicker } from './MoodPicker'
 import { TagInput } from './TagInput'
 import { Input } from './ui/input'
@@ -34,6 +36,10 @@ export function DayEditor({ dateKey }: DayEditorProps) {
   // 已加载完成的日期；用 dateKey 比对，避免「新日期 + 旧内容」的中间态被写回
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  // 重试计数：变一下就重新拉一遍，无需把加载逻辑塞进一个可调用函数
+  const [reloadKey, setReloadKey] = useState(0)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dirty = useRef(false)
   const pending = useRef<Draft | null>(null)
@@ -58,20 +64,39 @@ export function DayEditor({ dateKey }: DayEditorProps) {
       content,
       mood: draft.data.mood ?? null,
       tags: draft.data.tags ?? [],
-    }).then(() => setSavedAt(Date.now()))
+    })
+      .then(() => {
+        setSavedAt(Date.now())
+        setSaveError(null)
+      })
+      .catch((err) => {
+        // 保存失败必须让用户看见：否则会以为写进去了，其实没有
+        setSaveError(describeError(err))
+        // 并且绝不能把草稿丢掉：放回 pending、保持 dirty，5 秒后再试一次
+        pending.current = { date: draft.date, data: draft.data }
+        dirty.current = true
+        if (timer.current) clearTimeout(timer.current)
+        timer.current = setTimeout(flush, 5000)
+      })
   }
 
   useEffect(() => {
     let active = true
-    getByDate(dateKey).then((e) => {
-      if (!active) return
-      setEntry(e ?? null)
-      setLoadedFor(dateKey)
-    })
+    setLoadError(null)
+    getByDate(dateKey)
+      .then((e) => {
+        if (!active) return
+        setEntry(e ?? null)
+        setLoadedFor(dateKey)
+      })
+      .catch((err) => {
+        if (!active) return
+        setLoadError(describeError(err))
+      })
     return () => {
       active = false
     }
-  }, [dateKey])
+  }, [dateKey, reloadKey])
 
   // 防抖自动保存
   useEffect(() => {
@@ -95,6 +120,18 @@ export function DayEditor({ dateKey }: DayEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey])
 
+  if (loadError) {
+    return (
+      <LoadError
+        message={loadError}
+        onRetry={() => {
+          setLoadedFor(null)
+          setReloadKey((k) => k + 1)
+        }}
+      />
+    )
+  }
+
   if (!loaded) return <p className="text-muted-foreground">加载中…</p>
 
   return (
@@ -102,7 +139,13 @@ export function DayEditor({ dateKey }: DayEditorProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl">{formatHuman(dateKey)}</h1>
         <div className="flex items-center gap-3">
-          {savedAt && <span className="text-xs text-muted-foreground">已自动保存</span>}
+          {saveError ? (
+            <span className="text-xs font-bold text-destructive" title={saveError}>
+              保存失败，稍后会自动重试
+            </span>
+          ) : (
+            savedAt && <span className="text-xs text-muted-foreground">已自动保存</span>
+          )}
           <MoodPicker value={entry?.mood ?? null} onChange={(m) => patch({ mood: m })} />
         </div>
       </div>

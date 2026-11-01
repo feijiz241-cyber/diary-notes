@@ -14,8 +14,15 @@ import {
   DialogClose,
 } from '@/components/ui/dialog'
 import { useTheme } from '@/components/ThemeProvider'
-import { buildExportBundle, downloadFile, entriesToMarkdown, importBundle } from '@/lib/export'
+import {
+  buildExportBundle,
+  downloadFile,
+  entriesToMarkdown,
+  importBundle,
+  type ExportBundle,
+} from '@/lib/export'
 import { getAll, clearAllNotes, clearEntries } from '@/lib/db'
+import { describeError } from '@/lib/api-error'
 import { cleanupOrphanAssets } from '@/lib/cleanup'
 import { hasBrowserData, migrateBrowserToBackend } from '@/lib/migrate'
 import { toDateKey } from '@/lib/utils'
@@ -37,55 +44,83 @@ export function SettingsPage() {
       const n = await migrateBrowserToBackend()
       setStatus(`已从浏览器迁移 ${n} 篇日记到本机文件，之后不再因清缓存而丢失。`)
       setHasOld(false)
-    } catch {
-      setStatus('迁移失败，请重试。')
+    } catch (err) {
+      setStatus(`迁移失败：${describeError(err)}`)
     }
   }
 
   const onExportJson = async () => {
-    const bundle = await buildExportBundle()
-    downloadFile(`diary-${toDateKey()}.json`, JSON.stringify(bundle, null, 2))
-    setStatus('已导出 JSON 备份。')
+    setStatus('正在打包备份，素材多的话要等几秒…')
+    try {
+      const bundle = await buildExportBundle()
+      downloadFile(`diary-${toDateKey()}.json`, JSON.stringify(bundle, null, 2))
+      setStatus('已导出 JSON 备份。')
+    } catch (err) {
+      setStatus(`导出失败：${describeError(err)}`)
+    }
   }
 
   const onExportMd = async () => {
-    const all = await getAll()
-    downloadFile(`diary-${toDateKey()}.md`, entriesToMarkdown(all), 'text/markdown')
-    setStatus('已导出 Markdown。')
+    setStatus('正在导出 Markdown…')
+    try {
+      const all = await getAll()
+      downloadFile(`diary-${toDateKey()}.md`, entriesToMarkdown(all), 'text/markdown')
+      setStatus('已导出 Markdown。')
+    } catch (err) {
+      setStatus(`导出失败：${describeError(err)}`)
+    }
   }
 
   const onImport = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setStatus('正在检查备份文件…')
     try {
       const text = await file.text()
-      await importBundle(JSON.parse(text))
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        throw new Error('这个文件不是 JSON，可能选错了文件。原有数据没有被改动。')
+      }
+      // importBundle 会先把整份文件校验完再清空本地数据，坏文件不会造成任何损失
+      await importBundle(parsed as ExportBundle)
       setStatus('导入成功，已还原备份。')
-    } catch {
-      setStatus('导入失败：文件格式不正确。')
+    } catch (err) {
+      setStatus(`导入失败：${describeError(err)}`)
+    } finally {
+      e.target.value = ''
     }
-    e.target.value = ''
   }
 
   const onCleanup = async () => {
+    setStatus('正在清理未引用素材…')
     try {
       const r = await cleanupOrphanAssets()
       setStatus(
         `清理完成：删除 ${r.removedImages} 张图片、${r.removedFiles} 个附件；保留 ${r.keptImages} 张图片、${r.keptFiles} 个附件。`,
       )
-    } catch {
-      setStatus('清理失败，请重试。')
+    } catch (err) {
+      setStatus(`清理失败：${describeError(err)}`)
     }
   }
 
   const onClearDiary = async () => {
-    await clearEntries()
-    setStatus('已清空全部日记（笔记与图片/附件未动）。')
+    try {
+      await clearEntries()
+      setStatus('已清空全部日记（笔记与图片/附件未动）。')
+    } catch (err) {
+      setStatus(`清空失败：${describeError(err)}`)
+    }
   }
 
   const onClearNotes = async () => {
-    await clearAllNotes()
-    setStatus('已清空全部笔记（日记与图片/附件未动）。')
+    try {
+      await clearAllNotes()
+      setStatus('已清空全部笔记（日记与图片/附件未动）。')
+    } catch (err) {
+      setStatus(`清空失败：${describeError(err)}`)
+    }
   }
 
   return (

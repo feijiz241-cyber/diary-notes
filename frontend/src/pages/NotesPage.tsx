@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useSearchParams } from 'react-router-dom'
 import { CalendarDays, ChevronLeft, ChevronRight, NotebookPen, Plus, Trash2 } from 'lucide-react'
 import { getAllNotes, putNote, deleteNote, type Note } from '@/lib/db'
+import { describeError } from '@/lib/api-error'
 import { Editor } from '@/components/Editor'
+import { LoadError } from '@/components/LoadError'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +40,7 @@ function NoteCard({ note, dateKey, onDeleted, onSaved }: NoteCardProps) {
   const [title, setTitle] = useState(note.title)
   const [content, setContent] = useState<unknown>(note.content)
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [confirmDel, setConfirmDel] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dirty = useRef(false)
@@ -55,10 +58,17 @@ function NoteCard({ note, dateKey, onDeleted, onSaved }: NoteCardProps) {
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       dirty.current = false
-      putNote({ id: note.id, date: dateKey, title, content }).then((saved) => {
-        setSavedAt(Date.now())
-        onSaved?.(saved)
-      })
+      putNote({ id: note.id, date: dateKey, title, content })
+        .then((saved) => {
+          setSavedAt(Date.now())
+          setSaveError(null)
+          onSaved?.(saved)
+        })
+        .catch((err) => {
+          // 写失败别装作成功：把脏标记放回去，下一次输入会再试
+          dirty.current = true
+          setSaveError(describeError(err))
+        })
     }, 600)
     return () => {
       if (timer.current) clearTimeout(timer.current)
@@ -81,7 +91,10 @@ function NoteCard({ note, dateKey, onDeleted, onSaved }: NoteCardProps) {
           date: dateKey,
           title: latestTitle.current,
           content: latestContent.current,
-        }).then((saved) => onSaved?.(saved))
+        })
+          .then((saved) => onSaved?.(saved))
+          // 组件已经卸载，没有地方显示错误：至少别静默吞掉，留一条控制台记录
+          .catch((err) => console.error('[diary] 笔记在卸载时保存失败', err))
       }
     }
   }, [note.id, dateKey, onSaved])
@@ -92,8 +105,13 @@ function NoteCard({ note, dateKey, onDeleted, onSaved }: NoteCardProps) {
       return
     }
     deleting.current = true
-    await deleteNote(note.id)
-    onDeleted()
+    try {
+      await deleteNote(note.id)
+      onDeleted()
+    } catch (err) {
+      deleting.current = false
+      setSaveError(describeError(err))
+    }
   }
 
   return (
@@ -108,7 +126,13 @@ function NoteCard({ note, dateKey, onDeleted, onSaved }: NoteCardProps) {
           placeholder="笔记标题（可选）"
           className="border-0 px-0 font-medium shadow-none focus-visible:ring-0"
         />
-        {savedAt && <span className="shrink-0 text-xs text-muted-foreground">已保存</span>}
+        {saveError ? (
+          <span className="shrink-0 text-xs font-bold text-destructive" title={saveError}>
+            保存失败
+          </span>
+        ) : (
+          savedAt && <span className="shrink-0 text-xs text-muted-foreground">已保存</span>
+        )}
         <Button
           variant="outline"
           size="icon"
@@ -216,20 +240,36 @@ export function NotesPage() {
   const [searchParams] = useSearchParams()
   const [date, setDate] = useState(() => searchParams.get('date') || toDateKey(new Date()))
   const [allNotes, setAllNotes] = useState<Note[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const [creating, setCreating] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
 
-  const load = useCallback(() => getAllNotes().then(setAllNotes), [])
+  const load = useCallback(
+    () =>
+      getAllNotes()
+        .then((list) => {
+          setAllNotes(list)
+          setLoadError(null)
+        })
+        .catch((err) => setLoadError(describeError(err))),
+    [],
+  )
 
   useEffect(() => {
     let active = true
-    getAllNotes().then((list) => {
-      if (active) setAllNotes(list)
-    })
+    setLoadError(null)
+    getAllNotes()
+      .then((list) => {
+        if (active) setAllNotes(list)
+      })
+      .catch((err) => {
+        if (active) setLoadError(describeError(err))
+      })
     return () => {
       active = false
     }
-  }, [])
+  }, [reloadKey])
 
   // 从搜索页跳转时 URL 上的 date 变化，同步切到对应日期
   useEffect(() => {
@@ -275,13 +315,17 @@ export function NotesPage() {
     try {
       const created = await putNote({ date, title: '', content: EMPTY_DOC })
       upsertNoteInState(created)
+    } catch (err) {
+      setLoadError(describeError(err))
     } finally {
       setCreating(false)
     }
   }
 
   let notesList: ReactNode
-  if (allNotes === null) {
+  if (loadError && allNotes === null) {
+    notesList = <LoadError message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />
+  } else if (allNotes === null) {
     notesList = <p className="text-muted-foreground">加载中…</p>
   } else if (dayNotes.length === 0) {
     notesList = (

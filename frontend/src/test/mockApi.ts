@@ -79,6 +79,10 @@ export function createMockApi(): MockApi {
       state.files = {}
       return ok({ ok: true })
     }
+    // 必须放在 /api/entries/:date 之前（与后端路由顺序一致）
+    if (path === '/api/entries/dates' && method === 'GET') {
+      return ok(state.entries.map((e) => e.date as string).sort())
+    }
     const idMatch = path.match(/^\/api\/entries\/id\/([^/]+)$/)
     if (idMatch && method === 'GET') {
       const id = decodeURIComponent(idMatch[1])
@@ -89,7 +93,8 @@ export function createMockApi(): MockApi {
     if (dateMatch && method === 'GET') {
       const date = decodeURIComponent(dateMatch[1])
       const e = state.entries.find((x) => x.date === date)
-      return e ? ok(e) : ok({ error: 'nf' }, 404)
+      // 与后端一致：日期不存在回 200 + null（不是 404）
+      return ok(e ?? null)
     }
     if (dateMatch && method === 'DELETE') {
       const id = decodeURIComponent(dateMatch[1])
@@ -169,6 +174,7 @@ export function createMockApi(): MockApi {
       return {
         ok: true,
         status: 200,
+        headers: new Headers({ 'Content-Type': img.type }),
         json: async () => img,
         text: async () => JSON.stringify(img),
         arrayBuffer: async () => binToBuffer(img.base64),

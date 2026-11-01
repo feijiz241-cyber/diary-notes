@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { getYear } from '@/lib/db'
+import { describeError } from '@/lib/api-error'
+import { LoadError } from '@/components/LoadError'
 import { getMood } from '@/lib/mood'
 import { cn } from '@/lib/utils'
 import { Card } from '@/components/ui/card'
@@ -74,19 +76,27 @@ export function CalendarPage() {
   const navigate = useNavigate()
   const [year, setYear] = useState<number>(new Date().getFullYear())
   const [moods, setMoods] = useState<Record<string, string | null>>({})
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let active = true
-    getYear(year).then((list) => {
-      if (!active) return
-      const map: Record<string, string | null> = {}
-      for (const e of list) map[e.date] = e.mood
-      setMoods(map)
-    })
+    setLoadError(null)
+    getYear(year)
+      .then((list) => {
+        if (!active) return
+        const map: Record<string, string | null> = {}
+        for (const e of list) map[e.date] = e.mood
+        setMoods(map)
+      })
+      .catch((err) => {
+        if (!active) return
+        setLoadError(describeError(err))
+      })
     return () => {
       active = false
     }
-  }, [year])
+  }, [year, reloadKey])
 
   const handleDayClick = (date: string) => navigate('/day/' + date)
 
@@ -116,6 +126,9 @@ export function CalendarPage() {
           </Button>
         </div>
       </div>
+      {loadError && (
+        <LoadError compact message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />
+      )}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 12 }, (_, i) => (
           <MiniMonth

@@ -89,3 +89,37 @@ describe('ForestPage 距上/下篇', () => {
     expect(screen.getByText(/7月13日/)).toBeTruthy()
   })
 })
+
+describe('ForestPage 数据来源', () => {
+  it('算「距上/下篇」只取日期清单，不下载全部日记正文', async () => {
+    await seed(['2026-09-10', '2026-09-17'])
+
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init: RequestInit = {}) => {
+        if ((init.method || 'GET').toUpperCase() === 'GET') urls.push(String(input))
+        return mock.fetch(input, init)
+      }),
+    )
+
+    render(
+      <MemoryRouter>
+        <ForestPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(screen.getByLabelText('上个月')).toBeTruthy())
+    await waitFor(() => expect(urls.some((u) => u.includes('/api/entries/dates'))).toBe(true))
+
+    // 等所有 effect 跑完
+    await new Promise((r) => setTimeout(r, 50))
+
+    const parsed = urls.map((u) => new URL(u, 'http://localhost'))
+    expect(parsed.some((u) => u.pathname === '/api/entries/dates')).toBe(true)
+    // 只要日期清单，就不该出现「不带筛选、拉全部日记」这个请求
+    // （当月数据走 /api/entries?year=&month=，那是允许的）
+    const fetchAll = parsed.filter((u) => u.pathname === '/api/entries' && u.search === '')
+    expect(fetchAll).toHaveLength(0)
+  })
+})

@@ -90,9 +90,10 @@ describe('HTTP API (index.mjs)', () => {
     const del = await fetch(`${BASE}/api/entries/${e.id}`, { method: 'DELETE' })
     expect(del.status).toBe(200)
 
-    // 日记条目没了
+    // 日记条目没了（日期不存在 = 空日记 ⇒ 200 + null，不再是 404）
     const get = await fetch(`${BASE}/api/entries/2026-07-13`)
-    expect(get.status).toBe(404)
+    expect(get.status).toBe(200)
+    expect(await get.json()).toBe(null)
 
     // 但同日素材还在：素材池与笔记共享，连带删除会把笔记引用的文件删掉
     const imgGet = await fetch(`${BASE}/api/images/imgB`)
@@ -334,5 +335,50 @@ describe('请求体上限与 JSON 校验 (R6)', () => {
   it('生产默认上限是 32MB（可导出、可读，不是魔法数字埋在代码里）', async () => {
     const { MAX_BODY_BYTES } = await import('./index.mjs')
     expect(MAX_BODY_BYTES).toBe(32 * 1024 * 1024)
+  })
+})
+
+describe('GET /api/entries/dates（森林页只要日期）', () => {
+  it('只回日期数组，不含正文；结果升序', async () => {
+    await fetch(`${BASE}/api/entries`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date: '2026-05-09',
+        title: '森林页不该为了算间隔而下载这篇的正文',
+        content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '很长的正文' }] }] },
+        mood: null,
+        tags: [],
+      }),
+    })
+
+    const res = await fetch(`${BASE}/api/entries/dates`)
+    expect(res.status).toBe(200)
+    const dates = await res.json()
+
+    expect(Array.isArray(dates)).toBe(true)
+    expect(dates).toContain('2026-05-09')
+    expect(dates.every((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))).toBe(true)
+    expect([...dates].sort()).toEqual(dates)
+  })
+
+  it('不是被当成一篇日期叫 dates 的日记', async () => {
+    const res = await fetch(`${BASE}/api/entries/dates`)
+    expect(res.status).toBe(200)
+    expect(Array.isArray(await res.json())).toBe(true)
+  })
+})
+
+describe('GET /api/entries/:date 对「还没写的一天」不再回 404', () => {
+  it('日期存在但没写 ⇒ 200 + null（首屏探路不该在控制台报红）', async () => {
+    const res = await fetch(`${BASE}/api/entries/2031-02-03`)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toBe(null)
+  })
+
+  it('不是一个日期的路径仍然 404（拼错的 URL 不被当成空日记）', async () => {
+    const res = await fetch(`${BASE}/api/entries/not-a-date`)
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'not found' })
   })
 })
