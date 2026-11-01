@@ -106,6 +106,21 @@ describe('buildCrown', () => {
     expect(tones.has(2)).toBe(true)
   })
 
+  it('明暗是整块平涂：亮边只有顶部一条，不做枝层分段', () => {
+    // 曾经试过「按枝层分段明暗」（tierSpan=(ry*2)/10）→ 用户否掉：
+    // 「我只是想补完原来的树形，不用加什么层次」。整块平涂是刻意设定，
+    // 这条断言守住它，别再被改回去。
+    const toneByRow = new Map<number, number>()
+    for (const r of crown.rows) toneByRow.set((r.y - crown.origin.y) / PIXEL, r.tone)
+    const seq = [...toneByRow.entries()].sort((a, b) => a[0] - b[0]).map(([, t]) => t)
+    let litBands = 0
+    for (let i = 0; i < seq.length; i++) {
+      if (seq[i] === 2 && seq[i - 1] !== 2) litBands++
+    }
+    // 顶部受光一条 = 1；出现 2 条以上就说明又滑回「横条纹」了
+    expect(litBands).toBeLessThanOrEqual(2)
+  })
+
   it('噪点只落在填充格上', () => {
     for (const t of crown.texture) {
       expect(insideCrown(crown, t.x + PIXEL / 2, t.y + PIXEL / 2)).toBe(true)
@@ -148,21 +163,50 @@ describe('insideClumps / insideCrown / findCrownY', () => {
 describe('buildTrunk', () => {
   const trunk = buildTrunk(450, 400, 700, 36)
 
-  it('树干左右对称、底边贴地', () => {
-    const body = trunk.body[0]
-    expect(body.x + body.w / 2).toBe(450)
-    expect(body.y + body.h).toBe(700)
+  it('树干是一根直柱：宽度恒定、中线对称、底边贴地、顶端从树冠里起', () => {
+    // 用户 2026-11-01 明确否掉了「收分 / 树根台阶」：「直直的就行…
+    // 你这层次做的真僵硬,不如直接不衔接了」。所以这里守住「只有一段、
+    // 上下同宽、不做任何外扩」—— 谁再往里加台阶，这条会挂。
+    expect(trunk.body).toHaveLength(1)
+    const [b] = trunk.body
+    expect(b.x + b.w / 2).toBe(450)
+    expect(b.y).toBe(400)
+    expect(b.y + b.h).toBe(700)
+    // 树根可以留（用户 2026-11-01：「这个树根保留」），但柱子本身不许收分
+    expect(trunk.roots.length).toBeGreaterThan(0)
   })
 
-  it('树根比树干更宽（底部有台阶式外扩）', () => {
-    const body = trunk.body[0]
-    const widestRoot = Math.max(...trunk.roots.map((r) => r.w))
-    expect(widestRoot).toBeGreaterThan(body.w)
+  it('树根是三级台阶、越往下越宽、每级一格高、整体贴地', () => {
+    // 用户先否掉「逐行收分」，再指着树根截图说「这个树根保留」——
+    // 守门点：只有三级、宽度逐级 +2 格、最宽一级在地面那一行（往下张开）。
+    const steps = trunk.roots.filter((r) => r.h === PIXEL && r.w > PIXEL).sort((a, b) => b.y - a.y)
+    expect(steps.length).toBeGreaterThanOrEqual(3)
+    const [widest] = steps // y 最大 = 最靠下
+    expect(widest.y + widest.h).toBe(700)
+    for (let i = 1; i < 3; i++) {
+      expect(steps[i].w).toBe(steps[i - 1].w - 2 * PIXEL)
+    }
+    // 最宽不超过柱身宽度的两倍，否则又变成「树干踩着一块板」
+    expect(widest.w).toBeLessThanOrEqual(trunk.body[0].w * 2)
   })
 
-  it('树皮与树根都不越出画布左侧', () => {
+  it('树皮是左右各一列 + 内部散落的竖纹', () => {
+    // 左右两列必须贯穿整根树干；内部竖纹只能出现在树干内部，不能露到外面
+    const [b] = trunk.body
+    const full = trunk.bark.filter((r) => r.h === b.h)
+    expect(full).toHaveLength(2)
+    expect(full[0].x).toBe(b.x)
+    expect(full[1].x).toBe(b.x + b.w - PIXEL)
+    for (const r of trunk.bark) {
+      expect(r.x).toBeGreaterThanOrEqual(b.x)
+      expect(r.x + r.w).toBeLessThanOrEqual(b.x + b.w)
+      expect(r.y).toBeGreaterThanOrEqual(b.y)
+      expect(r.y + r.h).toBeLessThanOrEqual(b.y + b.h)
+    }
+  })
+
+  it('树皮不越出画布左侧', () => {
     for (const r of trunk.bark) expect(r.x).toBeGreaterThanOrEqual(0)
-    for (const r of trunk.roots) expect(r.x).toBeGreaterThanOrEqual(0)
   })
 })
 

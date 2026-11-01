@@ -154,117 +154,41 @@ export function buildSkyBands(
  */
 export function crownClumps(cx: number, cy: number, rx: number, ry: number): Clump[] {
   const clumps: Clump[] = []
-  const tiers = 11
+  const tiers = 18
   const topY = cy - ry
   const span = ry * 2
-  // 最宽点落在 t=0.72（约七成高），之后收底。
-  //
-  // 之前是 0.88：树冠最宽处几乎贴着底边，下缘于是横出一条又长又平的边，
-  // 看着像树冠坐在一块板子上（截图里就是「裙边/托盘」）。上移到 0.72 后
-  // 底部有了收拢的弧度，才像一丛树枝自然垂下来。
-  const WIDEST = 0.84
 
   /** 这一行（t: 0 顶 → 1 底）的半宽。 */
   const halfAt = (t: number): number => {
-    let w: number
-    if (t <= WIDEST) {
-      // 指数 0.58：同样高度下更早变宽，轮廓从「窄尖锥」变成「圆润塔形」。
-      // 这不只是好看：锥形太尖时，靠边的列只有最底部一小段是实心的，
-      // 叶子落在那些列就只能贴地排，横向一铺开就成斜线（真实踩过）。
-      w = Math.pow(t / WIDEST, 0.58)
-    } else {
-      // 收底用椭圆弧，但只收到 0.45 而不是 0：
-      // 收到 0 会让最下面一行缩成一个点，树冠底部出现「尖屁股」，
-      // 和树干接不上。留 0.45 让底缘是一条略宽的短边，被树干挡住。
-      const k = (t - WIDEST) / (1 - WIDEST)
-      // 收到 0.16：底行只剩 ~35px 宽的窄颈，正好被树干（半宽 20）挡住。
-      // 之前留 0.34~0.5 时底行还有 70~105px 宽，屏幕上就是一条平直横边。
-      w = 0.16 + 0.84 * Math.sqrt(Math.max(0, 1 - k * k))
-    }
-    // 低频起伏：破等差，避免圣诞树台阶
-    const wobble = Math.sin(t * Math.PI * 2.3 + 0.7) * 0.05 + Math.sin(t * Math.PI * 4.1) * 0.028
-    return rx * Math.min(1, Math.max(0.06, w + wobble))
+    // 指数 0.85：略向外鼓的锥形。既不是直尺三角形，也不是一眼「穹顶」。
+    // 曾经用 0.58——同样高度下更早变宽，轮廓像一口钟；1.0 又太直。
+    let w = Math.pow(Math.min(1, t / 0.965), 0.85)
+    // 低频起伏：破等差，避免圣诞树的机械台阶
+    const wobble = Math.sin(t * Math.PI * 2.3 + 0.7) * 0.014 + Math.sin(t * Math.PI * 4.1) * 0.008
+    return rx * Math.min(1, Math.max(0.07, w + wobble))
   }
 
+  // 主体：一行一团（左右各一团，错开一点，别像镜像出来的）。
+  // 半高略大于行距的一半，相邻行才叠成实心。
   for (let i = 0; i < tiers; i++) {
     const t = i / (tiers - 1)
     const y = topY + t * span
-    // 半高略大于行距的一半，相邻行才叠成实心（行距 = span/(tiers-1)）
     const bandRy = (span / (tiers - 1)) * 0.66
-
-    // 左右不对称：各给一个扰动，别让树像镜像出来的
-    const jL = 1 + (hash2(i, 91) - 0.5) * 0.13
-    const jR = 1 + (hash2(i, 97) - 0.5) * 0.13
+    const jL = 1 + (hash2(i, 91) - 0.5) * 0.06
+    const jR = 1 + (hash2(i, 97) - 0.5) * 0.06
     const wl = halfAt(t) * jL
     const wr = halfAt(t) * jR
     clumps.push({ cx: cx - wl * 0.32, cy: y, rx: wl * 0.68, ry: bandRy })
     clumps.push({ cx: cx + wr * 0.32, cy: y, rx: wr * 0.68, ry: bandRy })
-
-    // 左右各甩一个小团：让边缘是参差的针叶尖，不是直尺。
-    //
-    // 参数是三次试错调出来的（截图对照）：
-    // ① rx*0.05~0.12 的小团 + 甩到 0.88~1.04 倍宽处 → 每层左右都鼓出一个尖，
-    //    11 层排下来是「一排整齐的小翅膀」，树看着像被锯了边。
-    // ② 只在哈希通过时才甩（概率 ~55%），且尺寸/位置都放大范围 → 参差自然。
-    // ③ 底部三行完全不甩：那里甩出去就是裙边，树冠会横出一个底盘。
-    if (t < 0.78 && hash2(i, 61) < 0.55) {
-      for (const side of [-1, 1] as const) {
-        const w = side < 0 ? wl : wr
-        const tipRx = rx * (0.04 + hash2(i * 5 + side, 79) * 0.1)
-        // 关键钳制：侧团的外缘（偏移 + 自身半径）不能超过本行半宽。
-        // 不钳的话偏移能到 1.04w、半径再加 0.14rx，合起来 1.17rx 冲出轮廓，
-        // 树冠两侧就鼓出一排「小翅膀」（截图里很明显）。
-        const wantOut = w * (0.82 + hash2(i, side + 71) * 0.22)
-        const maxOut = Math.max(0, w * 1.02 - tipRx)
-        clumps.push({
-          cx: cx + side * Math.min(wantOut, maxOut),
-          cy: y + bandRy * (0.05 + hash2(i * 3 + side, 73) * 0.5),
-          rx: tipRx,
-          ry: ry * (0.025 + hash2(i * 7 + side, 83) * 0.05),
-        })
-      }
-    }
   }
 
-  // 底部垂枝：树冠底缘必须是参差的，不能是一条平直的横线。
+  // 尖顶：单独一小团，尺寸按「层距」算。
   //
-  // 只靠 tier 循环做不出来：11 层里最下面一层是一条宽度 ~0.5rx 的扁椭圆，
-  // 它的底边就是一条直线，截图里树冠像坐在一块板子上。
-  // 这里沿底缘撒一丛丛小枝，各自下垂不同深度，把底边打成锯齿。
-  //
-  // ⚠️ 这里出过一个真 bug（用户看到的是「树怎么有缺块」）：
-  // 原来 13 丛铺在 1.8rx 宽上（间距 0.138rx），而每丛 rx 只有 0.06~0.13rx
-  // （直径 0.12~0.26rx）—— 间距大于直径，相邻丛之间就断开；
-  // 更糟的是 drop 上限算到 0.22ry，而丛自身 ry 只有 0.05~0.11ry，
-  // 丛顶跑到主体底缘下方，整丛直接脱开，屏幕上就是树冠底下一串漂浮的黑块。
-  // 现在：丛数加密到 23、间距 0.078rx 保证相邻重叠、drop 上限压到丛自身高度以内，
-  // 让每丛都牢牢「挂」在主体底边上，只把下缘打出锯齿。
-  const bottomY = topY + span
-  const fringeCount = 23
-  for (let i = 0; i < fringeCount; i++) {
-    const u = (i + 0.5) / fringeCount // 0..1 横向位置
-    const x = cx + (u * 2 - 1) * rx * 0.94
-    // 中间垂得深、两侧浅一点（底缘整体是弧，但局部是锯齿）
-    const arc = 1 - Math.pow(Math.abs(u * 2 - 1), 1.5)
-    const frx = rx * (0.075 + hash2(i, 103) * 0.055)
-    const fry = ry * (0.055 + hash2(i, 107) * 0.045)
-    // 下垂量必须小于「丛自身半高 + 丛心相对底边的抬高量」，
-    // 否则丛顶掉到主体下面 = 缺块。抬高量是 ry*0.1，所以上限 ≈ fry + ry*0.1。
-    const maxDrop = fry + ry * 0.1 - ry * 0.02
-    const wantDrop = ry * (0.02 + arc * 0.11) * (0.55 + hash2(i, 101) * 0.9)
-    clumps.push({
-      cx: x,
-      cy: bottomY - ry * 0.1 + Math.min(wantDrop, maxDrop),
-      rx: frx,
-      ry: fry,
-    })
-  }
+  // 不用整条带高（bandRy ≈ 17px）：2 格宽的小团会被拉成一根竖在顶上的
+  // 「天线」，树是尖的，不是插了根棍子。也不做三团「圣诞帽」（曾经做过）。
+  const tipR = (span / (tiers - 1)) * 0.62
+  clumps.push({ cx, cy: topY + tipR * 0.25, rx: tipR * 1.15, ry: tipR * 1.05 })
 
-  // 树顶尖：没有它顶部是一个圆头，针叶树的尖顶是辨识特征。
-  // 光一个尖会像插了根杆子，左右各补一个小团收出「尖 → 稍宽 → 更宽」的层次。
-  clumps.push({ cx, cy: topY - ry * 0.04, rx: rx * 0.13, ry: ry * 0.09 })
-  clumps.push({ cx: cx - rx * 0.055, cy: topY + ry * 0.07, rx: rx * 0.1, ry: ry * 0.07 })
-  clumps.push({ cx: cx + rx * 0.06, cy: topY + ry * 0.09, rx: rx * 0.095, ry: ry * 0.075 })
   return clumps
 }
 
@@ -345,7 +269,10 @@ export function buildCrown(cx: number, cy: number, rx: number, ry: number): Crow
   const originX = Math.floor(minX / cell) * cell
   const originY = Math.floor(minY / cell) * cell
   const cols = Math.ceil((maxX - originX) / cell)
-  const rowsCount = Math.ceil((maxY - originY) / cell)
+  // 底部留 3 行余量：底缘锯齿是在挖格之后「按列往下延伸」画出来的，
+  // 不留余量就画到数组外面去了。
+  const HEM_PAD = 3
+  const rowsCount = Math.ceil((maxY - originY) / cell) + HEM_PAD
 
   const grid: boolean[][] = []
   for (let row = 0; row < rowsCount; row++) {
@@ -358,20 +285,103 @@ export function buildCrown(cx: number, cy: number, rx: number, ry: number): Crow
     grid.push(line)
   }
 
+  // ── 补孔：相邻小团之间偶尔会漏出 1 格宽的缝，缩略图上就是「树身上有个洞」。
+  // 只补「四邻有 3 个以上实心」的空格，边缘的锯齿不会被填掉。
+  for (let pass = 0; pass < 2; pass++) {
+    const add: Array<[number, number]> = []
+    for (let r = 0; r < rowsCount; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (grid[r][c]) continue
+        let n = 0
+        if (r > 0 && grid[r - 1][c]) n++
+        if (r + 1 < rowsCount && grid[r + 1][c]) n++
+        if (c > 0 && grid[r][c - 1]) n++
+        if (c + 1 < cols && grid[r][c + 1]) n++
+        if (n >= 3) add.push([r, c])
+      }
+    }
+    if (!add.length) break
+    for (const [r, c] of add) grid[r][c] = true
+  }
+
+  // ── 底缘：把每列的「最下面一格」继续往下拉成锯齿。
+  //
+  // 为什么不用小团来拼（走过四次弯路）：
+  // ① 13 丛铺满 1.8rx、间距大于直径 → 丛间断开，屏幕上是「一串漂浮的黑块」；
+  // ② 23 丛均分 + 弧线下垂 → 全掉到同一高度，底缘横成一条平直的「托盘」；
+  // ③ 沿轮廓下沿反解位置（invT）→ 忘了归一化，垂枝全落到底边；
+  // ④ 齿宽 2~3 格 + 下垂 1 格 → 横向全叠在一起，又变回一块「桌面」。
+  // 换成直接改格子：齿一定挂在实心格下面（绝不漂浮）、齿间一定是连着的，
+  // 长度按三角波 + 每段哈希给 1~3 格，底缘就是一条参差的边。
+  // 先把「最宽那一行以下」的椭球尾巴削平成一条直边，再在直边上挂锯齿。
+  //
+  // 不削的话，最下面那一层的椭圆底部只有中间两格是实心的，树冠底下是个圆屁股；
+  // 想在这上面挂齿，齿就只能挂在中间那一小段——屏幕上是「底下两颗孤零零的牙」。
+  const cutBase = Math.round((cy + ry + cell * 0.5 - originY) / cell)
+
+  // ── 边缘柔化：轮廓是平涂硬边的台阶，但每行都严格等距的话读起来像齿轮。
+  // 这里按行哈希在边上「长出一格」或「收回一格」，让轮廓有起伏（约每 3 行一次）。
+  // 只动最外侧那一格，绝不往树冠内部撒点 —— 内部噪点缩放后是迷彩脏斑（老教训）。
+  for (let r = 0; r < cutBase - 2; r++) {
+    let l = -1
+    let rt = -1
+    for (let c = 0; c < cols; c++) {
+      if (grid[r][c]) {
+        if (l < 0) l = c
+        rt = c
+      }
+    }
+    if (l < 0) continue
+    const hl = hash2(r, 211)
+    const hr = hash2(r, 223)
+    if (hl < 0.34 && l > 0) grid[r][l - 1] = true
+    else if (hl > 0.86 && l < rt) grid[r][l] = false
+    if (hr < 0.34 && rt < cols - 1) grid[r][rt + 1] = true
+    else if (hr > 0.86 && rt > l) grid[r][rt] = false
+  }
+
+
+  // 锯齿：每一列的深度按三角波 + 每段哈希给 1~3 格。
+  // 齿间不留缝（相邻列至多差 1~2 格）→ 是一条参差的边，不是漂浮的黑块。
+  const TRI = 11
+  if (cutBase >= 0 && cutBase < rowsCount) {
+    const mid = (cols - 1) / 2
+    for (let c = 0; c < cols; c++) {
+      const rel = mid === 0 ? 0 : (c - mid) / mid
+      // 中间高、两头低：一整层枝条中间厚、末端下垂，底缘是一条浅浅的 V，
+      // 而不是一条横线（横线 = 树脚垫了一块板）。
+      const lift = 2 - Math.round(5.5 * Math.pow(Math.abs(rel), 1.35))
+      const cutRow = cutBase - lift - (hash2(c, 127) < 0.45 ? 1 : 0)
+      const seg = Math.floor(c / TRI)
+      const amp = 2.2 + hash2(seg, 131) * 3.2
+      const tri = Math.pow(1 - Math.abs((((c % TRI) + 0.5) / TRI) * 2 - 1), 0.85)
+      const depth = Math.round(amp * tri)
+      const bottom = Math.min(rowsCount - 1, cutRow + depth)
+      // 逐列收边：cutRow 以上保持原样，cutRow..bottom 补实（枝条末端是连着的，
+      // 不能留缝——留缝就成了树脚下一串漂浮的黑块），bottom 以下清空。
+      for (let r = Math.max(0, cutRow); r <= bottom; r++) grid[r][c] = true
+      for (let r = bottom + 1; r < rowsCount; r++) grid[r][c] = false
+    }
+  }
+
   // ── 明暗：形状由松枝负责，树冠内部就该是**一整块近黑**（参考图实测 p50=14/255）。
   // 教训链：
   // ① 按 2×2 格撒 ±1 抖动 → 缩放后是迷彩脏斑
   // ② 三档色差只有 2~3 个色阶时，任何内部噪点都只会变脏
   // 剪影的层次靠「边缘受光」（rim）和「枝间透光」，不靠内部噪点。
-  // 所以现在 tone 只按「枝层」分：靠上的枝受月光、靠下的沉入暗部，
-  // 且**每层内部同色**（同一层不会一半亮一半暗，否则又变成横条纹）。
+  //
+  // 只有「上亮下暗」：树冠内部是一整块同色，靠轮廓的台阶读「一层层的枝条」，
+  // 不靠内部条纹。试过按枝层分段（每层上沿亮、下沿暗）——画出来是横条纹，
+  // 用户明确否掉（"不用加什么层次"），故保持整块同色。
   const clusterGrid: Array<Array<0 | 1 | 2 | -1>> = grid.map((row) =>
     row.map(() => -1 as const),
   )
   for (let row = 0; row < rowsCount; row++) {
     const t = rowsCount <= 1 ? 0.5 : row / (rowsCount - 1)
-    // 顶部一小段受月光、底部沉入暗部，其余全部是同一档主体色。
-    const base: 0 | 1 | 2 = t < 0.16 ? 2 : t > 0.88 ? 0 : 1
+    // 顶部一小段受月光；底部只留「最后一丛枝条下面」两行背光。
+    // 试过按整幅高度的 12% 压暗 —— 树长高到 370px 后那是 9 行、40px，
+    // 屏幕上就是树脚踩着一块深色横板（用户说「要补完树形」，这就是不协调的那块）。
+    const base: 0 | 1 | 2 = t < 0.16 ? 2 : row >= cutBase - 2 ? 0 : 1
     for (let col = 0; col < cols; col++) {
       if (!grid[row][col]) continue
       clusterGrid[row][col] = base
@@ -447,7 +457,7 @@ export function findCrownY(shape: CrownShape, x: number, targetY: number): numbe
 }
 
 /**
- * 树干：一根方柱 + 左右两条压暗的树皮边 + 零星竖纹 + 底部两级台阶树根。
+ * 树干：一根**等宽直柱** + 左右两条压暗的树皮边 + 零星竖纹 + 底部三级台阶树根（裙摆）。
  * topY 可以画进树冠内部（反正被树冠盖住看不见）。
  */
 export function buildTrunk(
@@ -455,32 +465,60 @@ export function buildTrunk(
   topY: number,
   groundY: number,
   halfWidth = 34,
-): { body: PixelRect[]; bark: PixelRect[]; roots: PixelRect[] } {
+): { body: PixelRect[]; bark: PixelRect[]; roots: PixelRect[]; rootsShade: PixelRect[] } {
   const cell = PIXEL
   const left = Math.round((cx - halfWidth) / cell) * cell
   const right = Math.round((cx + halfWidth) / cell) * cell
   const top = Math.round(topY / cell) * cell
   const bottom = Math.round(groundY / cell) * cell
 
+  // 树干是一根直柱：宽度恒定，从树冠里插到地面，**不收分**。
+  //
+  // 演进（别再往回改）：
+  // ① 最早是「两格高的暗宽板」当树根 → 放大是台座；
+  // ② 改成三级喇叭口 → 用户说衔接还是突兀；
+  // ③ 改成逐行收分 + 三级树根 → 用户否掉：「树干这里改回去吧,直直的就行,
+  //    不用做什么层次了,你这层次做的真僵硬,不如直接不衔接了」；
+  // ④ 于是全删成光柱，用户又截图指认「**这个树根保留**」⇒ 现在的样子：
+  //    **柱子直的，只留底部三级台阶当树根裙摆**（每级一格高、向外各扩一格，
+  //     全部用 TRUNK_SHADE 压暗，跟亮一点的柱身分开）。
+  // 结论：可以分「柱身 / 树根」两块，但不要做连续的渐变收分 —— 这个尺度上一格
+  // 5px，渐变只会读成一节节台阶。粗细改 `halfWidth`（`MonthTree` 传 26）。
   const body: PixelRect[] = [{ x: left, y: top, w: right - left, h: bottom - top }]
-
   const bark: PixelRect[] = [
     { x: left, y: top, w: cell, h: bottom - top },
     { x: right - cell, y: top, w: cell, h: bottom - top },
   ]
-  for (let y = top + cell * 2; y < bottom - cell; y += cell * 2) {
-    const h = hash2(Math.round(y / cell), Math.round(cx / cell))
-    if (h < 0.5) {
-      bark.push({ x: left + cell * (h < 0.25 ? 2 : 4), y, w: cell, h: cell })
+  // 树皮竖纹：隔几行在内部随机一列撒一格，读起来是粗糙的树皮，不是均匀网格
+  const cols = Math.max(1, Math.round((right - left) / cell))
+  for (let y = top + cell * 2; y < bottom - cell * 4; y += cell * 3) {
+    const row = Math.round(y / cell)
+    const h = hash2(row, 61)
+    if (h < 0.55) {
+      const col = 1 + Math.floor(hash2(row, 71) * Math.max(1, cols - 2))
+      bark.push({ x: left + col * cell, y, w: cell, h: cell })
     }
   }
 
-  const roots: PixelRect[] = [
-    { x: left - cell * 2, y: bottom - cell * 2, w: right - left + cell * 4, h: cell * 2 },
-    { x: left - cell, y: bottom - cell * 4, w: right - left + cell * 2, h: cell * 2 },
-  ]
+  // 树根：底部三级台阶，每级一格高、向外扩一格，整片压暗（TRUNK_SHADE）。
+  // 画在柱身之前，柱子会把中间那段盖住，只露出两侧的台阶。
+  // 左右不对称的一段根须（左边多伸一格）——完全镜像的根看着像贴纸。
+  const roots: PixelRect[] = []
+  const STEPS = 3
+  for (let b = 1; b <= STEPS; b++) {
+    // b = 1 是最低那一行（最宽），越往上越窄 ⇒ 往下张开，不是往上张开
+    const grow = STEPS + 1 - b
+    roots.push({
+      x: left - grow * cell,
+      y: bottom - b * cell,
+      w: right - left + grow * 2 * cell,
+      h: cell,
+    })
+  }
+  // 最低那一行左边再多伸一格（完全镜像的根看着像贴纸）
+  roots.push({ x: left - (STEPS + 1) * cell, y: bottom - cell, w: cell, h: cell })
 
-  return { body, bark, roots }
+  return { body, bark, roots, rootsShade: [] }
 }
 
 /**

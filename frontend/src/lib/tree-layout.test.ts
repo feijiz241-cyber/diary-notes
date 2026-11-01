@@ -169,4 +169,33 @@ describe('computeLayout (像素树：叶子横向按日期，纵向落在树冠�
       expect(layout.groundY).toBeGreaterThan(layout.trunkTopY)
     }
   })
+
+  it('一个月写满 31 篇时，不可能有两片叶子连同光晕压在一起', () => {
+    // 起因：用户 2026-11-01 问「日记多起来，这光点显示会不会出问题」，
+    // 随后贴截图指出「这里不是有点挤在一起了吗」。
+    //
+    // 判据按外接正方形：叶子从中心到光晕外沿是 `leafSize/2 + LEAF_RING(4)`，
+    // 两片不压住需要中心距 ≥ `leafSize + 2*LEAF_RING`。
+    // ⚠️ 第一版这里写成 `leafSize/2 + LEAF_RING`（少算一半），
+    // 于是代码自认为不重叠、屏幕上照样糊成一颗 —— 别再把半宽当间距。
+    const RING = 4
+    for (const n of [8, 12, 16, 20, 25, 28, 30, 31]) {
+      const dates = Array.from({ length: n }, (_, i) =>
+        entry(`2026-07-${String(i + 1).padStart(2, '0')}`),
+      )
+      const layout = computeLayout(dates, 2026, 7)
+      const need = layout.leafSize + RING * 2
+      for (let i = 0; i < layout.leaves.length; i++) {
+        for (let j = i + 1; j < layout.leaves.length; j++) {
+          const a = layout.leaves[i]
+          const b = layout.leaves[j]
+          const clash = Math.abs(a.x - b.x) < need && Math.abs(a.y - b.y) < need
+          expect(
+            clash,
+            `${n} 篇：${a.date}(${a.x},${a.y}) 与 ${b.date}(${b.x},${b.y}) 光晕重叠（need=${need}）`,
+          ).toBe(false)
+        }
+      }
+    }
+  })
 })

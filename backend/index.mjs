@@ -71,6 +71,31 @@ class HttpError extends Error {
 }
 
 /**
+ * 素材 id / 扩展名最终会被拼进文件名（`${id}.${ext}`），这里先卡死字符集。
+ *
+ * 2026-11-01 冒烟测试时发现：`POST /api/images` 少传 imageId 会**静默**写进一条
+ * id 为 `undefined` 的清单、请求还回 200 —— 脏数据进去了还不知道。
+ * 本机单用户场景下这不是权限问题，但「错的东西悄悄进去」必须改成「当场 400」。
+ */
+const SAFE_KEY_RE = /^[A-Za-z0-9_-]{1,80}$/
+const SAFE_EXT_RE = /^[A-Za-z0-9]{1,6}$/
+
+function requireAssetKey(value, label) {
+  if (typeof value !== 'string' || !SAFE_KEY_RE.test(value)) {
+    throw new HttpError(400, `${label} 必填，且只允许字母、数字、下划线、短横线（最长 80）`)
+  }
+  return value
+}
+
+function normalizeExt(value, fallback) {
+  const ext = value === undefined || value === null || value === '' ? fallback : value
+  if (typeof ext !== 'string' || !SAFE_EXT_RE.test(ext)) {
+    throw new HttpError(400, 'ext 只允许字母数字（最长 6）')
+  }
+  return ext.toLowerCase()
+}
+
+/**
  * 零依赖 HTTP 服务：把 REST API 接到 Store。
  * 返回已 listen 的 http.Server。
  * @param {number} maxBodyBytes 请求体上限，默认取 MAX_BODY_BYTES（测试可传小值，不必真发 33MB）
@@ -295,9 +320,15 @@ export function createServer(
       }
 
       if (entryDateMatch && method === 'DELETE') {
-        const id = decodeURIComponent(entryDateMatch[1])
-        await store.deleteById(id)
-        sendJSON(200, { ok: true })
+        // 这里既接受条目 id（uuid），也接受日期（2026-11-30）——
+        // 文档写的路由是 `/api/entries/:date`，而 `db.deleteEntry(id)` 传的是 id，
+        // 两个都对才不会出现「删了但没删掉、还回 200」。
+        const key = decodeURIComponent(entryDateMatch[1])
+        const all = await store.readAll()
+        const hit = all.find((e) => e.id === key || e.date === key)
+        if (hit) await store.deleteById(hit.id)
+        // 明确回答删没删：以前不管删没删都回 ok，调用方无法发现白删
+        sendJSON(200, { ok: true, deleted: Boolean(hit) })
         return
       }
 
@@ -359,13 +390,13 @@ export function createServer(
 
       if (pathname === '/api/files' && method === 'POST') {
         const body = await readBody()
-        if (!body.fileId || !body.base64) {
+        if (typeof body.base64 !== 'string' || body.base64.length === 0) {
           sendJSON(400, { error: 'fileId and base64 required' })
           return
         }
-        await store.putFile(body.fileId, {
+        await store.putFile(requireAssetKey(body.fileId, 'fileId'), {
           entryId: body.entryId,
-          ext: body.ext || 'bin',
+          ext: normalizeExt(body.ext, 'bin'),
           name: body.name,
           type: body.type,
           size: body.size,
@@ -407,9 +438,13 @@ export function createServer(
 
       if (pathname === '/api/images' && method === 'POST') {
         const body = await readBody()
-        await store.putImage(body.imageId, {
+        if (typeof body.base64 !== 'string' || body.base64.length === 0) {
+          sendJSON(400, { error: 'base64 required' })
+          return
+        }
+        await store.putImage(requireAssetKey(body.imageId, 'imageId'), {
           entryId: body.entryId,
-          ext: body.ext,
+          ext: normalizeExt(body.ext, 'png'),
           base64: body.base64,
         })
         sendJSON(200, { ok: true })

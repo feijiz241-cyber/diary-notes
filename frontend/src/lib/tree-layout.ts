@@ -87,10 +87,10 @@ const GROUND_H = 92
 /* 树的比例：整棵树约占画面高度的 55%（360/650），宽度只占 34%。
  * 参考图里的树都是「画面里的一棵树」，不是「一棵树的画面」——
  * 上方要留大片天给月亮和星，左右要留出松树剪影的框。 */
-const CROWN_RX = 215
-const CROWN_RY = 145
+const CROWN_RX = 188
+const CROWN_RY = 188
 /** 树冠中心 y */
-const CROWN_CY = 270
+const CROWN_CY = 252
 /**
  * 树干顶端伸进树冠多深（相对 crownRY，从树冠底边往上量）。
  *
@@ -221,8 +221,10 @@ export function computeLayout(entries: Entry[], year: number, month: number): Tr
     // 纵向：树冠里实际能排几行。31 篇时横向只有 12px，光看横向不够。
     const vGap = (crownRY * 2) / Math.max(2, Math.min(11, Math.ceil(sorted.length / 5)))
     const gap = Math.min(hGap, vGap)
-    const raw = Math.max(8, Math.min(22, gap * 0.8))
-    return Math.max(6, Math.round(raw / 2) * 2)
+    // 下限 10：树冠改窄变高之后（188×188、18 层）列间更紧，
+    // 再小就和夜空星点分不开、也不好点。与 tests 里「10~22」的断言一致。
+    const raw = Math.max(10, Math.min(22, gap * 0.8))
+    return Math.max(10, Math.round(raw / 2) * 2)
   })()
 
   /** 叶子外圈（把光点「长」进树里的那一层）相对方块的溢出量，必须与 MonthTree 一致。 */
@@ -239,11 +241,6 @@ export function computeLayout(entries: Entry[], year: number, month: number): Tr
   //    每片叶子沿本列从哈希起点开始找第一个「四周留白」的位置，
   //    找不到就取碰撞最轻的。这样既不重叠，也不会排成直线。
   //
-  // LEAF_GAP 只用来给「第一片叶子」一个哈希起点扰动，
-  // 后续叶子靠最远点采样自然分开，不硬性规定最小间距。
-  const LEAF_GAP = 16
-  const placed: Array<{ x: number; y: number }> = []
-
   /**
    * 整块叶子（含外描边）是否完整落在树冠里。
    *
@@ -252,119 +249,155 @@ export function computeLayout(entries: Entry[], year: number, month: number): Tr
    * 靠边的叶子四个角会探到树冠轮廓之外，近黑的树冠上就出现一个个方口子。
    * 这里查 9 个点（四角 + 四边中点 + 中心），比只查中心严格得多。
    */
-  const footprintFits = (x: number, y: number, half: number): boolean => {
+  const half = leafSize / 2 + LEAF_RING
+  const footprintFits = (px: number, py: number): boolean => {
     for (const dx of [-half, 0, half]) {
       for (const dy of [-half, 0, half]) {
-        if (!insideCrown(crown, x + dx, y + dy)) return false
+        if (!insideCrown(crown, px + dx, py + dy)) return false
       }
     }
     return true
   }
 
-  const leaves: LeafLayout[] = sorted.map((e) => {
-    const day = dayOf(e.date)
-    const t = dim <= 1 ? 0.5 : (day - 1) / (dim - 1)
-    const rawX = bandLeft + t * (bandRight - bandLeft)
-    let x = snapCellCenter(rawX)
+  /**
+   * 两片叶子「连同光晕」不互相压住，中心距（切比雪夫）至少要这么大。
+   *
+   * ⚠️ 这里错过一次（用户截图指出「这里不是有点挤在一起了吗」）：
+   * 第一版写成 `leafSize / 2 + LEAF_RING`（= 9），那是**一片叶子自己的半宽**，
+   * 拿它当两片叶子的最小间距等于把判据缩小了一半 —— 代码认为「不重叠」，
+   * 屏幕上两团光晕照样糊成一颗。正确值是 `leafSize + 2 * LEAF_RING`：
+   * 每片叶子从中心到光晕外沿是 `size/2 + RING`，两片加起来就是 `size + 2*RING`。
+   */
+  const need = leafSize + LEAF_RING * 2
+  const step = PIXEL * 2
+  /** 允许横向挪几格去找空位（10 格 = 50px，画布宽度的 4.3%）。 */
+  const OFFSET_CELLS = 10
 
-    // 该列可能落在树冠外（塔形上部很窄）→ 向两侧找最近的有填充的列。
-    if (!columnHasCrown(crown, Math.floor((x - crown.origin.x) / PIXEL))) {
-      for (let step = 1; step <= crown.cols; step++) {
-        const leftCol = Math.floor((x - crown.origin.x) / PIXEL) - step
-        const rightCol = Math.floor((x - crown.origin.x) / PIXEL) + step
-        if (columnHasCrown(crown, rightCol)) {
-          x = crown.origin.x + rightCol * PIXEL + PIXEL / 2
-          break
-        }
-        if (columnHasCrown(crown, leftCol)) {
-          x = crown.origin.x + leftCol * PIXEL + PIXEL / 2
-          break
+  interface Spot {
+    x: number
+    y: number
+  }
+
+  /** 到最近一片已放叶子的切比雪夫距离（方块是方的，用 max(|dx|,|dy|) 判压不压住）。 */
+  const nearestOf = (spot: Spot, others: Spot[]): number => {
+    let near = Infinity
+    for (const p of others) {
+      const d = Math.max(Math.abs(p.x - spot.x), Math.abs(p.y - spot.y))
+      if (d < near) near = d
+    }
+    return near
+  }
+
+  /**
+   * 给一片叶子找落点：本列所有可落的 y + 左右各挪 1~OFFSET_CELLS 格的可落点。
+   *
+   * 选择顺序 = ① 能不能和已放叶子拉开 `need`（满足就压过一切）② 离已放叶子多远
+   * （最远点采样，避免全挤在树冠中下部）③ 同分留在本列，尽量保住「x 表示日期」的读法。
+   */
+  const scanSpot = (baseX: number, h: number, others: Spot[]): Spot => {
+    let best: Spot = {
+      x: baseX,
+      y: snapCellCenter(findCrownY(crown, baseX, crownCY) ?? crownCY),
+    }
+    let bestScore = -Infinity
+    for (let offset = 0; offset <= OFFSET_CELLS; offset++) {
+      for (const k of offset === 0 ? [0] : [offset, -offset]) {
+        const candX = snapCellCenter(baseX + k * PIXEL)
+        const colRange = crownColumnRange(
+          crown,
+          Math.floor((candX - crown.origin.x) / PIXEL),
+        )
+        if (!colRange) continue
+        const count = Math.max(
+          1,
+          Math.floor((colRange.bottom - colRange.top - PIXEL) / step) + 1,
+        )
+        // 起点用强混合哈希打散，保证同日期同结果、且不跟 x 相关
+        const startIdx = Math.floor(hash2(h, 31) * count) % count
+        for (let q = 0; q < count; q++) {
+          const idx = (startIdx + q) % count
+          const seedY = snapCellCenter(colRange.top + PIXEL / 2 + idx * step)
+          const found = findCrownY(crown, candX, seedY)
+          if (found === null) continue
+          const candY = snapCellCenter(found)
+          if (!footprintFits(candX, candY)) continue
+
+          const near = nearestOf({ x: candX, y: candY }, others)
+          const ok = near >= need
+          // 分两档：能满足 `need` 的候选优先（1e6），档内**优先不挪**（每个 -2），
+          // 档外则比「离最近叶子多远 − 挪动代价」。这样稀疏月份不会为了「更匀」把叶子甩到 50px 外。
+          const score =
+            others.length === 0
+              ? hash2(h, 53) - Math.abs(k) * 2
+              : (ok ? 1e6 : 0) - Math.abs(k) * 2 + Math.min(near, need) * (ok ? 0.001 : 1)
+          if (score > bestScore) {
+            bestScore = score
+            best = { x: candX, y: candY }
+          }
         }
       }
     }
+    return best
+  }
 
-    const h = hashDate(e.date)
-    const half = leafSize / 2 + LEAF_RING
+  const leaves: LeafLayout[] = []
 
-    // 候选 y：本列实心段内每 2 格一个位置（步长 PIXEL*2 = 10px）
-    const step = PIXEL * 2
-
-    /**
-     * 在某一列里挑一个「离已放叶子最远、且整块塞得进树冠」的 y。
-     * 返回 null 表示这一列从头到尾都塞不下（树冠在这一列太薄）。
-     */
-    const pickY = (cx0: number): number | null => {
-      const colIdx = Math.floor((cx0 - crown.origin.x) / PIXEL)
-      const colRange = crownColumnRange(crown, colIdx)
-      if (!colRange) return null
-      const top = colRange.top
-      const bottom = colRange.bottom
-      const count = Math.max(1, Math.floor((bottom - top - PIXEL) / step) + 1)
-      // 起点用强混合哈希打散，保证同日期同结果、且不跟 x 相关
-      const startIdx = Math.floor(hash2(h, 31) * count) % count
-
-      let bestY: number | null = null
-      let bestScore = -Infinity
-      for (let k = 0; k < count; k++) {
-        const idx = (startIdx + k) % count
-        const candY = snapCellCenter(top + PIXEL / 2 + idx * step)
-        const found = findCrownY(crown, cx0, candY)
-        if (found === null) continue
-        const y = snapCellCenter(found)
-        if (!footprintFits(cx0, y, half)) continue
-
-        // 到最近一片已放叶子的距离（欧氏）；没有已放叶子时用哈希决定起点
-        let nearest = Infinity
-        for (const q of placed) {
-          const d = Math.hypot(q.x - cx0, q.y - y)
-          if (d < nearest) nearest = d
-        }
-        if (nearest === Infinity) nearest = hash2(h, 53) * LEAF_GAP * 2
-        const score = nearest + hash2(h, 59) * 0.01
-        if (score > bestScore) {
-          bestScore = score
-          bestY = y
+  {
+    // ① 每片叶子先按日期算一个基准列；列落在树冠外（塔形上部很窄）→ 找最近的有填充的列。
+    const items = sorted.map((e) => {
+      const day = dayOf(e.date)
+      const t = dim <= 1 ? 0.5 : (day - 1) / (dim - 1)
+      let baseX = snapCellCenter(bandLeft + t * (bandRight - bandLeft))
+      if (!columnHasCrown(crown, Math.floor((baseX - crown.origin.x) / PIXEL))) {
+        const homeCol = Math.floor((baseX - crown.origin.x) / PIXEL)
+        for (let s = 1; s <= crown.cols; s++) {
+          if (columnHasCrown(crown, homeCol + s)) {
+            baseX = crown.origin.x + (homeCol + s) * PIXEL + PIXEL / 2
+            break
+          }
+          if (columnHasCrown(crown, homeCol - s)) {
+            baseX = crown.origin.x + (homeCol - s) * PIXEL + PIXEL / 2
+            break
+          }
         }
       }
-      return bestY
-    }
+      return { e, day, baseX, h: hashDate(e.date) }
+    })
 
-    // 最远点采样：本列所有候选 y 都试一遍，挑「离已放叶子最远」的那个。
-    // 之前是「挑第一个不碰撞的位置」，结果叶子全挤在最先试到的地方（树冠中下部），
-    // 上半截空着、下半截一串阶梯。最远点采样天然会把后来的叶子往空处推。
+    // ② 按日期顺序贪心放一遍（后来的叶子往空处推）。
+    const spots: Spot[] = []
+    for (const it of items) spots.push(scanSpot(it.baseX, it.h, spots))
+
+    // ③ 松弛三轮：轮流把每片叶子「从板上拿下来」，在其余叶子都摆好的前提下重新找位置。
     //
-    // 若本列整块塞不下（塔形树冠边缘的列很薄），就按「离树冠中线由近到远」的
-    // 顺序往内挪一格再试 —— 时间逻辑靠 x 体现，挪一两格（10~20px）不影响读图。
-    let bestY = pickY(x)
-    if (bestY === null) {
-      const dir = x < crownCX ? 1 : -1
-      for (let k = 1; k <= 12 && bestY === null; k++) {
-        const candX = snapCellCenter(x + dir * k * PIXEL)
-        if (!columnHasCrown(crown, Math.floor((candX - crown.origin.x) / PIXEL))) continue
-        const y = pickY(candX)
-        if (y !== null) {
-          x = candX
-          bestY = y
+    // 为什么还要这一步（2026-11-01 实测）：贪心按日期顺序放，写到月末那几片时
+    // 好位置已经被占，31 篇时会剩 3~4 对光晕相碰 —— 而几何上完全放得下（31 片 × 18px 只占树冠一小块）。
+    // 让每片叶子都有机会「看着全体重来一次」，就能把这几对解开。
+    // 只在「离最近叶子更远」时才接受（严格变好），同分保留原位，保证结果是确定的。
+    for (let pass = 0; pass < 3; pass++) {
+      for (let i = 0; i < items.length; i++) {
+        const others = spots.filter((_, j) => j !== i)
+        // 每轮给哈希起点加一点偏移，否则同样的输入永远算出同样的位置
+        const cand = scanSpot(items[i].baseX, items[i].h + pass * 7919, others)
+        if (nearestOf(cand, others) > nearestOf(spots[i], others) + 1e-9) {
+          spots[i] = cand
         }
       }
     }
-    if (bestY === null) {
-      // 兜底：理论上到不了这里（树冠中段一定塞得下）。真到了就贴树冠中线。
-      bestY = snapCellCenter(findCrownY(crown, crownCX, crownCY) ?? crownCY)
-    }
 
-    placed.push({ x, y: bestY })
-
-    const mood = getMood(e.mood)
-    return {
-      date: e.date,
-      day,
-      x,
-      y: bestY,
-      color: mood?.color ?? '#9CB86A',
-      moodId: e.mood ?? null,
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]
+      const mood = getMood(it.e.mood)
+      leaves.push({
+        date: it.e.date,
+        day: it.day,
+        x: spots[i].x,
+        y: spots[i].y,
+        color: mood?.color ?? '#9CB86A',
+        moodId: it.e.mood ?? null,
+      })
     }
-  })
+  }
 
   const gaps: GapLayout[] = []
   for (let i = 0; i < sorted.length - 1; i++) {

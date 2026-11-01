@@ -359,7 +359,7 @@ export function MonthTree({
         ...buildPine(width - 78, groundY + PIXEL, 178, 5),
         ...buildPine(width + 26, groundY + PIXEL, 268, 12),
       ],
-      trunk: buildTrunk(trunkX, trunkTopY, groundY, 20),
+      trunk: buildTrunk(trunkX, trunkTopY, groundY, 26),
       ground: buildGround(width, groundY, bottomY),
     }
   }, [width, height, groundY, bottomY, ridgeBaseY, trunkX, trunkTopY])
@@ -503,12 +503,21 @@ export function MonthTree({
         <Rects rects={scenery.ground.edge} fill={GROUND_TOP} />
         <Rects rects={scenery.ground.grassTop} fill={GROUND_TOP} />
         <Rects rects={scenery.ground.grassMid} fill={GROUND_SLOPE} />
+        {/* 中景坡地的上缘亮边：buildGround 一直在算 crestTop，但这里从来没画过，
+            所以坡地和草地只差两个色阶，画面下半部看着是一整块平涂。
+            补上这条边，近处的地势起伏才可见（原本是「算出来但没接线」）。 */}
+        <Rects rects={scenery.ground.crestTop} fill={GROUND_TOP} />
         <Rects rects={scenery.ground.dirt} fill={DIRT} />
 
         {/* 画面左右的近黑松树剪影：给画面加纵深 */}
         <Rects rects={scenery.pines} fill={BUSH} />
 
-        {/* 树干：暗剪影 + 树皮纹 */}
+        {/* 树干：**柱身是直柱**（不收分）+ 底部三级台阶树根（压暗的裙摆）。
+            用户 2026-11-01 的两次反馈合起来才是正解：先否掉「逐行收分」的层次
+            （「直直的就行…你这层次做的真僵硬,不如直接不衔接了」），
+            随后又指着树根截图说「这个树根保留」⇒ 柱子直、树根台阶留着。
+            所以这里先画 roots（TRUNK_SHADE），柱身会盖住中间，只露出两侧台阶。
+            粗细只由 `buildTrunk(..., halfWidth=26)` 决定。 */}
         <Rects rects={scenery.trunk.roots} fill={TRUNK_SHADE} />
         <Rects rects={scenery.trunk.body} fill={TRUNK_BASE} />
         <Rects rects={scenery.trunk.bark} fill={BARK} />

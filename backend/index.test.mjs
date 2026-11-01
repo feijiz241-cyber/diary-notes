@@ -239,6 +239,61 @@ describe('HTTP API (index.mjs)', () => {
     expect(await (await fetch(`${BASE}/api/entries`)).json()).toHaveLength(0)
     expect(await (await fetch(`${BASE}/api/notes`)).json()).toHaveLength(0)
   })
+
+  it('POST /api/images 缺 imageId 时当场 400，不写脏清单（2026-11-01 冒烟发现）', async () => {
+    const before = (await (await fetch(`${BASE}/api/images`)).json()).length
+    const res = await fetch(`${BASE}/api/images`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId: '2026-11-30', ext: 'png', base64: 'AAAA' }),
+    })
+    expect(res.status).toBe(400)
+    const after = (await (await fetch(`${BASE}/api/images`)).json())
+    expect(after.length).toBe(before)
+    // 以前会写进一条 id 为 undefined 的清单、还回 200
+    expect(after.some((i) => i.id === 'undefined')).toBe(false)
+  })
+
+  it('图片 id / ext 不接受路径字符（防穿越到别的目录）', async () => {
+    for (const body of [
+      { imageId: '../evil', entryId: '2026-11-30', ext: 'png', base64: 'AAAA' },
+      { imageId: 'ok-id', entryId: '2026-11-30', ext: '../../png', base64: 'AAAA' },
+    ]) {
+      const res = await fetch(`${BASE}/api/images`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      expect(res.status).toBe(400)
+    }
+  })
+
+  it('DELETE /api/entries/:key 既认 id 也认日期，并回答删没删', async () => {
+    const j = { 'Content-Type': 'application/json' }
+    const put = async (date) => {
+      const r = await fetch(`${BASE}/api/entries`, {
+        method: 'PUT',
+        headers: j,
+        body: JSON.stringify({ date, title: 'x', content: {}, mood: null, tags: [] }),
+      })
+      return r.json()
+    }
+
+    // 按日期删
+    await put('2026-11-30')
+    const byDate = await (await fetch(`${BASE}/api/entries/2026-11-30`, { method: 'DELETE' })).json()
+    expect(byDate.deleted).toBe(true)
+    expect(await (await fetch(`${BASE}/api/entries/2026-11-30`)).json()).toBeNull()
+
+    // 按 id 删
+    const created = await put('2026-12-02')
+    const byId = await (await fetch(`${BASE}/api/entries/${created.id}`, { method: 'DELETE' })).json()
+    expect(byId.deleted).toBe(true)
+
+    // 删不存在的：不再假装成功
+    const none = await (await fetch(`${BASE}/api/entries/2099-01-01`, { method: 'DELETE' })).json()
+    expect(none.deleted).toBe(false)
+  })
 })
 
 describe('请求体上限与 JSON 校验 (R6)', () => {
