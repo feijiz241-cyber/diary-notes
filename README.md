@@ -29,6 +29,8 @@ npm run build      # 类型检查 + 生产构建到 frontend/dist/
 npm run preview    # 预览生产包
 ```
 
+> **系统要求**：Node **20 以上**（`package.json` 的 `engines` 有声明，实测 Node 24）。`start-diary.bat` **只有 Windows 能用**——macOS / Linux 请用上面的 `npm run server` + `npm run dev` 手动起两个进程。
+>
 > **日常使用**：双击 `start-diary.bat`。它在源码**有改动时**才 build（没改动直接复用 `dist`，约 0.06 秒），然后**只起一个后端进程**同时提供页面和 `/api`（生产模式，打开 http://127.0.0.1:5189）。没改代码时从双击到页面出现约 1 秒。
 >
 > **正在改代码时**：在同一个目录里跑 `start-diary.bat dev`（开发模式，起 5188 的 vite dev + 5189 的后端，改完页面自动刷新）。改完代码想回到日常模式，直接双击 `start-diary.bat` 即可。
