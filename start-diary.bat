@@ -16,7 +16,10 @@ rem  so both modes live here instead of shipping a second .bat.
 rem ============================================================
 setlocal EnableExtensions
 cd /d "%~dp0"
-set PATH=C:\Users\quan\.workbuddy\binaries\node\versions\22.22.2-2;%PATH%
+rem  Use the bundled node if this machine has one; otherwise fall back to
+rem  whatever `node` is on PATH (any Node 20+ works).
+set "BUNDLED_NODE=%USERPROFILE%\.workbuddy\binaries\node\versions\22.22.2-2"
+if exist "%BUNDLED_NODE%\node.exe" set "PATH=%BUNDLED_NODE%;%PATH%"
 set SLEEP=%SystemRoot%\System32\timeout.exe
 
 if /i "%~1"=="dev" goto dev_mode
